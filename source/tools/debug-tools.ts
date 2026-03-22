@@ -236,20 +236,34 @@ export class DebugTools implements ToolExecutor {
 
     private async executeScript(script: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
+            // Cocos Creator 3.8.x: try multiple approaches for JS execution
+            // First try execute-scene-script with eval method
             Editor.Message.request('scene', 'execute-scene-script', {
-                name: 'console',
+                name: '',
                 method: 'eval',
                 args: [script]
             }).then((result: any) => {
                 resolve({
                     success: true,
-                    data: {
-                        result: result,
-                        message: 'Script executed successfully'
+                    data: { result }
+                });
+            }).catch(() => {
+                // Fallback: try using 'scene:run-script' message
+                Editor.Message.request('scene', 'run-script', { script }).then((result: any) => {
+                    resolve({
+                        success: true,
+                        data: { result }
+                    });
+                }).catch((err2: Error) => {
+                    // Last resort: eval in editor process context
+                    try {
+                        const fn = new Function(script);
+                        const result = fn();
+                        resolve({ success: true, data: { result } });
+                    } catch (evalErr: any) {
+                        resolve({ success: false, error: `Script execution failed: ${evalErr.message}` });
                     }
                 });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
             });
         });
     }
@@ -291,11 +305,49 @@ export class DebugTools implements ToolExecutor {
                     resolve({ success: true, data: tree });
                 });
             } else {
-                Editor.Message.request('scene', 'query-hierarchy').then(async (hierarchy: any) => {
+                // Cocos Creator 3.8.x: use 'query-node-tree' instead of 'query-hierarchy'
+                // Build tree directly from query-node-tree response (different format than query-node)
+                const buildTreeFromNodeData = (nodeData: any, depth: number = 0, maxD: number = 10): any => {
+                    if (depth >= maxD) return { truncated: true };
+
+                    // Extract UUID - may be a string or {value: "..."} object
+                    const uuid = typeof nodeData.uuid === 'string' ? nodeData.uuid : nodeData.uuid?.value;
+                    // Extract name - may be a string or {value: "..."} object
+                    const name = typeof nodeData.name === 'string' ? nodeData.name : nodeData.name?.value;
+                    // Extract active - may be a boolean or {value: bool} object
+                    const active = typeof nodeData.active === 'boolean' ? nodeData.active : nodeData.active?.value;
+
+                    const tree: any = {
+                        uuid,
+                        name,
+                        active,
+                        childCount: 0,
+                        children: [] as any[]
+                    };
+
+                    // Children may be objects in query-node-tree format or string UUIDs
+                    const children = nodeData.children;
+                    if (children && Array.isArray(children) && children.length > 0) {
+                        tree.childCount = children.length;
+                        for (const child of children) {
+                            if (typeof child === 'string') {
+                                // String UUID - need to query for details
+                                tree.children.push({ uuid: child, name: '?', active: true, childCount: 0, children: [] });
+                            } else if (child && typeof child === 'object') {
+                                // Object in query-node-tree format - recurse
+                                const childTree = buildTreeFromNodeData(child, depth + 1, maxD);
+                                tree.children.push(childTree);
+                            }
+                        }
+                    }
+                    return tree;
+                };
+
+                Editor.Message.request('scene', 'query-node-tree').then((hierarchy: any) => {
                     const trees = [];
-                    for (const rootNode of hierarchy.children) {
-                        const tree = await buildTree(rootNode.uuid);
-                        trees.push(tree);
+                    const rootNodes = Array.isArray(hierarchy) ? hierarchy : (hierarchy?.children || []);
+                    for (const rootNode of rootNodes) {
+                        trees.push(buildTreeFromNodeData(rootNode, 0, maxDepth));
                     }
                     resolve({ success: true, data: trees });
                 }).catch((err: Error) => {
@@ -347,8 +399,9 @@ export class DebugTools implements ToolExecutor {
 
             // Check for performance issues
             if (options.checkPerformance) {
-                const hierarchy = await Editor.Message.request('scene', 'query-hierarchy');
-                const nodeCount = this.countNodes(hierarchy.children);
+                const hierarchy = await Editor.Message.request('scene', 'query-node-tree');
+                const rootNodes = (hierarchy as any)?.children || hierarchy || [];
+                const nodeCount = this.countNodes(rootNodes);
                 
                 if (nodeCount > 1000) {
                     issues.push({

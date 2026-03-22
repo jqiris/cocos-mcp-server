@@ -349,32 +349,43 @@ export class ComponentTools implements ToolExecutor {
                 resolve({ success: false, error: `Failed to get components for node '${nodeUuid}': ${allComponentsInfo.error}` });
                 return;
             }
-            // 2. 只查找type字段等于componentType的组件（即cid）
-            const exists = allComponentsInfo.data.components.some((comp: any) => comp.type === componentType);
+            // 2. 查找匹配的组件，支持type名称和UUID
+            let matchedComp: any = null;
+            const exists = allComponentsInfo.data.components.some((comp: any) => {
+                if (comp.type === componentType || comp.uuid === componentType) {
+                    matchedComp = comp;
+                    return true;
+                }
+                return false;
+            });
             if (!exists) {
-                resolve({ success: false, error: `Component cid '${componentType}' not found on node '${nodeUuid}'. 请用getComponents获取type字段（cid）作为componentType。` });
+                resolve({ success: false, error: `Component '${componentType}' not found on node '${nodeUuid}'. 请用getComponents获取type字段作为componentType。` });
                 return;
             }
-            // 3. 官方API直接移除
+            // 3. Extract component UUID and remove via remove-component message
+            // In Cocos 3.8.x, the actual UUID is in properties.uuid.value (top-level uuid is null)
+            const compUuid = matchedComp.properties?.uuid?.value || matchedComp.uuid || null;
+            if (!compUuid) {
+                resolve({ success: false, error: `Cannot determine component UUID for '${componentType}' on node '${nodeUuid}'` });
+                return;
+            }
             try {
-                await Editor.Message.request('scene', 'remove-component', {
-                    uuid: nodeUuid,
-                    component: componentType
+                await Editor.Message.request('scene', 'remove-component', { uuid: compUuid });
+            } catch (e: any) {
+                resolve({ success: false, error: `Failed to remove component: ${e.message}` });
+                return;
+            }
+            // Verify removal
+            const afterRemoveInfo = await this.getComponents(nodeUuid);
+            const stillExists = afterRemoveInfo.success && afterRemoveInfo.data?.components?.some((comp: any) => comp.type === componentType);
+            if (stillExists) {
+                resolve({ success: false, error: `Component '${componentType}' was not removed from node '${nodeUuid}'` });
+            } else {
+                resolve({
+                    success: true,
+                    message: `Component '${componentType}' removed successfully from node '${nodeUuid}'`,
+                    data: { nodeUuid, componentType, compUuid }
                 });
-                // 4. 再查一次确认是否移除
-                const afterRemoveInfo = await this.getComponents(nodeUuid);
-                const stillExists = afterRemoveInfo.success && afterRemoveInfo.data?.components?.some((comp: any) => comp.type === componentType);
-                if (stillExists) {
-                    resolve({ success: false, error: `Component cid '${componentType}' was not removed from node '${nodeUuid}'.` });
-                } else {
-                    resolve({
-                        success: true,
-                        message: `Component cid '${componentType}' removed successfully from node '${nodeUuid}'`,
-                        data: { nodeUuid, componentType }
-                    });
-                }
-            } catch (err: any) {
-                resolve({ success: false, error: `Failed to remove component: ${err.message}` });
             }
         });
     }
@@ -639,6 +650,15 @@ export class ComponentTools implements ToolExecutor {
                 let processedValue: any;
                 
                 // 根据明确的propertyType处理属性值
+                // Helper: try to parse string values as JSON for object types
+                const tryParseObject = (val: any): any => {
+                    if (typeof val === 'object' && val !== null) return val;
+                    if (typeof val === 'string') {
+                        try { const parsed = JSON.parse(val); if (typeof parsed === 'object' && parsed !== null) return parsed; } catch (e) { /* not valid JSON */ }
+                    }
+                    return null;
+                };
+
                 switch (propertyType) {
                     case 'string':
                         processedValue = String(value);
@@ -655,44 +675,49 @@ export class ComponentTools implements ToolExecutor {
                         if (typeof value === 'string') {
                             // 字符串格式：支持十六进制、颜色名称、rgb()/rgba()
                             processedValue = this.parseColorString(value);
-                        } else if (typeof value === 'object' && value !== null) {
-                            // 对象格式：验证并转换RGBA值
-                            processedValue = {
-                                r: Math.min(255, Math.max(0, Number(value.r) || 0)),
-                                g: Math.min(255, Math.max(0, Number(value.g) || 0)),
-                                b: Math.min(255, Math.max(0, Number(value.b) || 0)),
-                                a: value.a !== undefined ? Math.min(255, Math.max(0, Number(value.a))) : 255
-                            };
                         } else {
-                            throw new Error('Color value must be an object with r, g, b properties or a hexadecimal string (e.g., "#FF0000")');
+                            const colorObj = tryParseObject(value);
+                            if (colorObj) {
+                                processedValue = {
+                                    r: Math.min(255, Math.max(0, Number(colorObj.r) || 0)),
+                                    g: Math.min(255, Math.max(0, Number(colorObj.g) || 0)),
+                                    b: Math.min(255, Math.max(0, Number(colorObj.b) || 0)),
+                                    a: colorObj.a !== undefined ? Math.min(255, Math.max(0, Number(colorObj.a))) : 255
+                                };
+                            } else {
+                                throw new Error('Color value must be an object with r, g, b properties or a hexadecimal string (e.g., "#FF0000")');
+                            }
                         }
                         break;
                     case 'vec2':
-                        if (typeof value === 'object' && value !== null) {
+                        const vec2Obj = tryParseObject(value);
+                        if (vec2Obj) {
                             processedValue = {
-                                x: Number(value.x) || 0,
-                                y: Number(value.y) || 0
+                                x: Number(vec2Obj.x) || 0,
+                                y: Number(vec2Obj.y) || 0
                             };
                         } else {
                             throw new Error('Vec2 value must be an object with x, y properties');
                         }
                         break;
                     case 'vec3':
-                        if (typeof value === 'object' && value !== null) {
+                        const vec3Obj = tryParseObject(value);
+                        if (vec3Obj) {
                             processedValue = {
-                                x: Number(value.x) || 0,
-                                y: Number(value.y) || 0,
-                                z: Number(value.z) || 0
+                                x: Number(vec3Obj.x) || 0,
+                                y: Number(vec3Obj.y) || 0,
+                                z: Number(vec3Obj.z) || 0
                             };
                         } else {
                             throw new Error('Vec3 value must be an object with x, y, z properties');
                         }
                         break;
                     case 'size':
-                        if (typeof value === 'object' && value !== null) {
+                        const sizeObj = tryParseObject(value);
+                        if (sizeObj) {
                             processedValue = {
-                                width: Number(value.width) || 0,
-                                height: Number(value.height) || 0
+                                width: Number(sizeObj.width) || 0,
+                                height: Number(sizeObj.height) || 0
                             };
                         } else {
                             throw new Error('Size value must be an object with width, height properties');

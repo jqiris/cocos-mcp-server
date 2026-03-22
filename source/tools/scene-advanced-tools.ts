@@ -265,18 +265,45 @@ export class SceneAdvancedTools implements ToolExecutor {
 
     private async resetNodeProperty(uuid: string, path: string): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'reset-property', { 
-                uuid, 
-                path, 
-                dump: { value: null } 
-            }).then(() => {
-                resolve({
-                    success: true,
-                    message: `Property '${path}' reset to default value`
+            // Cocos Creator 3.8.x: 'reset-property' may not exist or have different params
+            // Use 'set-property' with default values for known properties
+            const defaults: Record<string, any> = {
+                'position': { x: 0, y: 0, z: 0 },
+                'rotation': { x: 0, y: 0, z: 0 },
+                'scale': { x: 1, y: 1, z: 1 },
+                'active': true,
+                'name': 'Node',
+                'layer': 33554432
+            };
+
+            if (defaults[path] !== undefined) {
+                Editor.Message.request('scene', 'set-property', {
+                    uuid,
+                    path,
+                    dump: { value: defaults[path] }
+                }).then(() => {
+                    resolve({
+                        success: true,
+                        message: `Property '${path}' reset to default value`
+                    });
+                }).catch((err: Error) => {
+                    resolve({ success: false, error: err.message });
                 });
-            }).catch((err: Error) => {
-                resolve({ success: false, error: err.message });
-            });
+            } else {
+                // For unknown properties, try 'reset-property' as original fallback
+                Editor.Message.request('scene', 'reset-property', {
+                    uuid,
+                    path,
+                    dump: { value: null }
+                }).then(() => {
+                    resolve({
+                        success: true,
+                        message: `Property '${path}' reset to default value`
+                    });
+                }).catch((err: Error) => {
+                    resolve({ success: false, error: `Cannot reset property '${path}': ${err.message}. Known resettable properties: ${Object.keys(defaults).join(', ')}` });
+                });
+            }
         });
     }
 

@@ -418,10 +418,18 @@ export class SceneViewTools implements ToolExecutor {
 
     private async focusCameraOnNodes(uuids: string[] | null): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'focus-camera', uuids || []).then(() => {
-                const message = uuids === null ? 
-                    'Camera focused on all nodes' : 
-                    `Camera focused on ${uuids.length} node(s)`;
+            // Cocos Creator 3.8.x: ensure uuids is a proper array
+            // MCP framework may pass arrays as strings or other formats
+            let uuidArray: string[] = [];
+            if (Array.isArray(uuids)) {
+                uuidArray = uuids;
+            } else if (uuids !== null && uuids !== undefined) {
+                try { uuidArray = JSON.parse(String(uuids)); } catch (e) { uuidArray = []; }
+            }
+            Editor.Message.request('scene', 'focus-camera', uuidArray).then(() => {
+                const message = uuids === null ?
+                    'Camera focused on all nodes' :
+                    `Camera focused on ${uuidArray.length} node(s)`;
                 resolve({
                     success: true,
                     message: message
@@ -447,10 +455,12 @@ export class SceneViewTools implements ToolExecutor {
 
     private async alignViewWithNode(): Promise<ToolResponse> {
         return new Promise((resolve) => {
-            Editor.Message.request('scene', 'align-with-view-node').then(() => {
+            // Cocos Creator 3.8.x: 'align-with-view-node' may not exist,
+            // use empty focus-camera as fallback
+            Editor.Message.request('scene', 'focus-camera', [] as string[]).then(() => {
                 resolve({
                     success: true,
-                    message: 'View aligned with selected node'
+                    message: 'View reset to default (align-with-view-node not available in 3.8.x, used focus-camera fallback)'
                 });
             }).catch((err: Error) => {
                 resolve({ success: false, error: err.message });
