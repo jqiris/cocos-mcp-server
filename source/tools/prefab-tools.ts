@@ -213,8 +213,7 @@ export class PrefabTools implements ToolExecutor {
             Editor.Message.request('scene', 'set-property', {
                 uuid: nodeUuid,
                 path: '_prefab',
-                type: 'null',
-                value: null
+                dump: { value: null }
             }).then(() => {
                 resolve({ success: true, message: `Unlinked prefab instance ${nodeUuid}` });
             }).catch((err: Error) => {
