@@ -869,40 +869,31 @@ export class ComponentTools implements ToolExecutor {
                         }
                     });
                 } else if (componentType === 'cc.UITransform' && (property === '_contentSize' || property === 'contentSize')) {
-                    // Special handling for UITransform contentSize - set width and height separately
-                    const width = Number(value.width) || 100;
-                    const height = Number(value.height) || 100;
-                    
-                    // Set width first
+                    // Special handling for UITransform contentSize - set _contentSize as cc.Size
+                    const sizeData = (processedValue && typeof processedValue === 'object') ? processedValue : value;
+                    const width = Number(sizeData.width) || 100;
+                    const height = Number(sizeData.height) || 100;
+
+                    console.log(`[ComponentTools] Setting contentSize via _contentSize path: ${width}x${height}, compIdx: ${rawComponentIndex}`);
+
+                    // Set the whole _contentSize at once with cc.Size type
                     await Editor.Message.request('scene', 'set-property', {
                         uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.width`,
-                        dump: { value: width }
-                    });
-                    
-                    // Then set height
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.height`,
-                        dump: { value: height }
+                        path: `__comps__.${rawComponentIndex}._contentSize`,
+                        dump: { value: { width: width, height: height }, type: 'cc.Size' }
                     });
                 } else if (componentType === 'cc.UITransform' && (property === '_anchorPoint' || property === 'anchorPoint')) {
-                    // Special handling for UITransform anchorPoint - set anchorX and anchorY separately
-                    const anchorX = Number(value.x) || 0.5;
-                    const anchorY = Number(value.y) || 0.5;
-                    
-                    // Set anchorX first
+                    // Special handling for UITransform anchorPoint - set _anchorPoint as cc.Vec2
+                    const anchorData = (processedValue && typeof processedValue === 'object') ? processedValue : value;
+                    const anchorX = Number(anchorData.x) ?? 0.5;
+                    const anchorY = Number(anchorData.y) ?? 0.5;
+
+                    console.log(`[ComponentTools] Setting anchorPoint via _anchorPoint path: ${anchorX},${anchorY}, compIdx: ${rawComponentIndex}`);
+
                     await Editor.Message.request('scene', 'set-property', {
                         uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.anchorX`,
-                        dump: { value: anchorX }
-                    });
-                    
-                    // Then set anchorY  
-                    await Editor.Message.request('scene', 'set-property', {
-                        uuid: nodeUuid,
-                        path: `__comps__.${rawComponentIndex}.anchorY`,
-                        dump: { value: anchorY }
+                        path: `__comps__.${rawComponentIndex}._anchorPoint`,
+                        dump: { value: { x: anchorX, y: anchorY }, type: 'cc.Vec2' }
                     });
                 } else if (propertyType === 'color' && processedValue && typeof processedValue === 'object') {
                     // 特殊处理颜色属性，确保RGBA值正确

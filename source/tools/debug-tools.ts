@@ -11,10 +11,31 @@ export class DebugTools implements ToolExecutor {
     }
 
     private setupConsoleCapture(): void {
-        // Intercept Editor console messages
-        // Note: Editor.Message.addBroadcastListener may not be available in all versions
-        // This is a placeholder for console capture implementation
-        console.log('Console capture setup - implementation depends on Editor API availability');
+        // Override console methods to capture messages
+        const self = this;
+        const origLog = console.log;
+        const origWarn = console.warn;
+        const origError = console.error;
+        const origInfo = console.info;
+
+        console.log = (...args: any[]) => {
+            origLog.apply(console, args);
+            self.addConsoleMessage({ type: 'log', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        };
+        console.warn = (...args: any[]) => {
+            origWarn.apply(console, args);
+            self.addConsoleMessage({ type: 'warn', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        };
+        console.error = (...args: any[]) => {
+            origError.apply(console, args);
+            self.addConsoleMessage({ type: 'error', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        };
+        console.info = (...args: any[]) => {
+            origInfo.apply(console, args);
+            self.addConsoleMessage({ type: 'info', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        };
+
+        origLog('Console capture setup complete');
     }
 
     private addConsoleMessage(message: any): void {

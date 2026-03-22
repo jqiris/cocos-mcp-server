@@ -376,9 +376,10 @@ export class NodeTools implements ToolExecutor {
                         await new Promise(resolve => setTimeout(resolve, 100)); // 等待节点创建完成
                         for (const componentType of args.components) {
                             try {
-                                const result = await this.componentTools.execute('add_component', {
+                                const result = await this.componentTools.execute('component_manage', {
                                     nodeUuid: uuid,
-                                    componentType: componentType
+                                    componentType: componentType,
+                                    action: 'add'
                                 });
                                 if (result.success) {
                                     console.log(`Component ${componentType} added successfully`);
