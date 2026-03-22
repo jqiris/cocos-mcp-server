@@ -24,6 +24,7 @@ export class MCPServer {
     private tools: Record<string, any> = {};
     private toolsList: ToolDefinition[] = [];
     private enabledTools: any[] = []; // 存储启用的工具列表
+    private toolCategoryMap: Map<string, string> = new Map(); // tool name -> category mapping
 
     constructor(settings: MCPServerSettings) {
         this.settings = settings;
@@ -90,38 +91,40 @@ export class MCPServer {
 
     private setupTools(): void {
         this.toolsList = [];
-        
+        this.toolCategoryMap.clear();
+
         // 如果没有启用工具配置，返回所有工具
         if (!this.enabledTools || this.enabledTools.length === 0) {
             for (const [category, toolSet] of Object.entries(this.tools)) {
                 const tools = toolSet.getTools();
                 for (const tool of tools) {
                     this.toolsList.push({
-                        name: `${category}_${tool.name}`,
+                        name: tool.name,
                         description: tool.description,
                         inputSchema: tool.inputSchema
                     });
+                    this.toolCategoryMap.set(tool.name, category);
                 }
             }
         } else {
             // 根据启用的工具配置过滤
-            const enabledToolNames = new Set(this.enabledTools.map(tool => `${tool.category}_${tool.name}`));
-            
+            const enabledToolNames = new Set(this.enabledTools.map(tool => tool.name));
+
             for (const [category, toolSet] of Object.entries(this.tools)) {
                 const tools = toolSet.getTools();
                 for (const tool of tools) {
-                    const toolName = `${category}_${tool.name}`;
-                    if (enabledToolNames.has(toolName)) {
+                    if (enabledToolNames.has(tool.name)) {
                         this.toolsList.push({
-                            name: toolName,
+                            name: tool.name,
                             description: tool.description,
                             inputSchema: tool.inputSchema
                         });
+                        this.toolCategoryMap.set(tool.name, category);
                     }
                 }
             }
         }
-        
+
         console.log(`[MCPServer] Setup tools: ${this.toolsList.length} tools available`);
     }
 
@@ -130,19 +133,17 @@ export class MCPServer {
             return this.toolsList; // 如果没有过滤配置，返回所有工具
         }
 
-        const enabledToolNames = new Set(enabledTools.map(tool => `${tool.category}_${tool.name}`));
+        const enabledToolNames = new Set(enabledTools.map(tool => tool.name));
         return this.toolsList.filter(tool => enabledToolNames.has(tool.name));
     }
 
     public async executeToolCall(toolName: string, args: any): Promise<any> {
-        const parts = toolName.split('_');
-        const category = parts[0];
-        const toolMethodName = parts.slice(1).join('_');
-        
-        if (this.tools[category]) {
-            return await this.tools[category].execute(toolMethodName, args);
+        const category = this.toolCategoryMap.get(toolName);
+
+        if (category && this.tools[category]) {
+            return await this.tools[category].execute(toolName, args);
         }
-        
+
         throw new Error(`Tool ${toolName} not found`);
     }
 
@@ -340,17 +341,17 @@ export class MCPServer {
         
         req.on('end', async () => {
             try {
-                // Extract tool name from path like /api/node/set_position
+                // Extract tool name from path like /api/scene/scene_management
                 const pathParts = pathname.split('/').filter(p => p);
                 if (pathParts.length < 3) {
                     res.writeHead(400);
                     res.end(JSON.stringify({ error: 'Invalid API path. Use /api/{category}/{tool_name}' }));
                     return;
                 }
-                
+
                 const category = pathParts[1];
-                const toolName = pathParts[2];
-                const fullToolName = `${category}_${toolName}`;
+                const toolName = pathParts.slice(2).join('_');
+                const fullToolName = toolName; // Tool names are now full names, not prefixed
                 
                 // Parse parameters with enhanced error handling
                 let params;
@@ -397,17 +398,14 @@ export class MCPServer {
 
     private getSimplifiedToolsList(): any[] {
         return this.toolsList.map(tool => {
-            const parts = tool.name.split('_');
-            const category = parts[0];
-            const toolName = parts.slice(1).join('_');
-            
+            const category = this.toolCategoryMap.get(tool.name) || 'unknown';
+
             return {
                 name: tool.name,
                 category: category,
-                toolName: toolName,
                 description: tool.description,
-                apiPath: `/api/${category}/${toolName}`,
-                curlExample: this.generateCurlExample(category, toolName, tool.inputSchema)
+                apiPath: `/api/${category}/${tool.name}`,
+                curlExample: this.generateCurlExample(category, tool.name, tool.inputSchema)
             };
         });
     }

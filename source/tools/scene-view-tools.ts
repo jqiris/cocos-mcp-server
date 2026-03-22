@@ -4,219 +4,108 @@ export class SceneViewTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'change_gizmo_tool',
-                description: 'Change Gizmo tool',
+                name: 'scene_view_gizmo_management',
+                description: 'Gizmo management: change tool type, pivot point, coordinate system, view alignment mode',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['set_tool', 'get_tool_name', 'set_pivot', 'set_coordinate', 'set_align_with_view'],
+                            description: 'Operation type'
+                        },
                         name: {
                             type: 'string',
-                            description: 'Tool name',
-                            enum: ['position', 'rotation', 'scale', 'rect']
+                            description: 'Tool name (for set_tool) or pivot/coordinate type (for set_pivot/set_coordinate)',
+                            enum: ['position', 'rotation', 'scale', 'rect', 'pivot', 'center', 'local', 'global']
                         }
                     },
-                    required: ['name']
+                    required: ['action']
                 }
             },
             {
-                name: 'query_gizmo_tool_name',
-                description: 'Get current Gizmo tool name',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'change_gizmo_pivot',
-                description: 'Change transform pivot point',
+                name: 'scene_view_mode_control',
+                description: 'View mode control: switch 2D/3D view, manage grid display',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        name: {
+                        action: {
                             type: 'string',
-                            description: 'Pivot point',
-                            enum: ['pivot', 'center']
-                        }
-                    },
-                    required: ['name']
-                }
-            },
-            {
-                name: 'query_gizmo_pivot',
-                description: 'Get current Gizmo pivot point',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_gizmo_view_mode',
-                description: 'Query view mode (view/select)',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'change_gizmo_coordinate',
-                description: 'Change coordinate system',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        type: {
-                            type: 'string',
-                            description: 'Coordinate system',
-                            enum: ['local', 'global']
-                        }
-                    },
-                    required: ['type']
-                }
-            },
-            {
-                name: 'query_gizmo_coordinate',
-                description: 'Get current coordinate system',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'change_view_mode_2d_3d',
-                description: 'Change 2D/3D view mode',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
+                            enum: ['switch_2d_3d', 'set_grid_visible', 'get_view_mode'],
+                            description: 'Operation type'
+                        },
                         is2D: {
                             type: 'boolean',
-                            description: '2D/3D view mode (true for 2D, false for 3D)'
-                        }
-                    },
-                    required: ['is2D']
-                }
-            },
-            {
-                name: 'query_view_mode_2d_3d',
-                description: 'Get current view mode',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'set_grid_visible',
-                description: 'Show/hide grid',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
+                            description: '2D/3D view mode (true for 2D, false for 3D) - for switch_2d_3d'
+                        },
                         visible: {
                             type: 'boolean',
-                            description: 'Grid visibility'
+                            description: 'Grid visibility - for set_grid_visible'
                         }
                     },
-                    required: ['visible']
+                    required: ['action']
                 }
             },
             {
-                name: 'query_grid_visible',
-                description: 'Query grid visibility status',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'set_icon_gizmo_3d',
-                description: 'Set IconGizmo to 3D or 2D mode',
+                name: 'scene_view_icon_gizmo',
+                description: 'IconGizmo management: set 3D/2D mode, adjust size',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['set_3d_mode', 'set_2d_mode', 'set_size'],
+                            description: 'Operation type'
+                        },
                         is3D: {
                             type: 'boolean',
-                            description: '3D/2D IconGizmo (true for 3D, false for 2D)'
-                        }
-                    },
-                    required: ['is3D']
-                }
-            },
-            {
-                name: 'query_icon_gizmo_3d',
-                description: 'Query IconGizmo mode',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'set_icon_gizmo_size',
-                description: 'Set IconGizmo size',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
+                            description: '3D/2D IconGizmo (true for 3D, false for 2D) - for set_3d_mode'
+                        },
                         size: {
                             type: 'number',
-                            description: 'IconGizmo size',
+                            description: 'IconGizmo size - for set_size',
                             minimum: 10,
                             maximum: 100
                         }
                     },
-                    required: ['size']
+                    required: ['action']
                 }
             },
             {
-                name: 'query_icon_gizmo_size',
-                description: 'Query IconGizmo size',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'focus_camera_on_nodes',
-                description: 'Focus scene camera on nodes',
+                name: 'scene_view_camera_control',
+                description: 'Camera control: focus camera on nodes, align camera, align view',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['focus', 'align_camera', 'align_view'],
+                            description: 'Operation type'
+                        },
                         uuids: {
                             oneOf: [
                                 { type: 'array', items: { type: 'string' } },
                                 { type: 'null' }
                             ],
-                            description: 'Node UUIDs to focus on (null for all)'
+                            description: 'Node UUIDs to focus on (null for all) - for focus'
                         }
                     },
-                    required: ['uuids']
+                    required: ['action']
                 }
             },
             {
-                name: 'align_camera_with_view',
-                description: 'Apply scene camera position and angle to selected node',
+                name: 'scene_view_status_management',
+                description: 'Scene view status: get comprehensive status, reset to default',
                 inputSchema: {
                     type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'align_view_with_node',
-                description: 'Apply selected node position and angle to current view',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'get_scene_view_status',
-                description: 'Get comprehensive scene view status',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'reset_scene_view',
-                description: 'Reset scene view to default settings',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_status', 'reset_default'],
+                            description: 'Operation type'
+                        }
+                    },
+                    required: ['action']
                 }
             }
         ];
@@ -224,48 +113,85 @@ export class SceneViewTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'change_gizmo_tool':
+            case 'scene_view_gizmo_management':
+                return await this.handleGizmoManagement(args);
+            case 'scene_view_mode_control':
+                return await this.handleModeControl(args);
+            case 'scene_view_icon_gizmo':
+                return await this.handleIconGizmo(args);
+            case 'scene_view_camera_control':
+                return await this.handleCameraControl(args);
+            case 'scene_view_status_management':
+                return await this.handleStatusManagement(args);
+            default:
+                throw new Error(`Unknown tool: ${toolName}`);
+        }
+    }
+
+    private async handleGizmoManagement(args: any): Promise<ToolResponse> {
+        switch (args.action) {
+            case 'set_tool':
                 return await this.changeGizmoTool(args.name);
-            case 'query_gizmo_tool_name':
+            case 'get_tool_name':
                 return await this.queryGizmoToolName();
-            case 'change_gizmo_pivot':
+            case 'set_pivot':
                 return await this.changeGizmoPivot(args.name);
-            case 'query_gizmo_pivot':
-                return await this.queryGizmoPivot();
-            case 'query_gizmo_view_mode':
-                return await this.queryGizmoViewMode();
-            case 'change_gizmo_coordinate':
-                return await this.changeGizmoCoordinate(args.type);
-            case 'query_gizmo_coordinate':
-                return await this.queryGizmoCoordinate();
-            case 'change_view_mode_2d_3d':
+            case 'set_coordinate':
+                return await this.changeGizmoCoordinate(args.name);
+            case 'set_align_with_view':
+                return await this.alignCameraWithView();
+            default:
+                throw new Error(`Unknown action: ${args.action}`);
+        }
+    }
+
+    private async handleModeControl(args: any): Promise<ToolResponse> {
+        switch (args.action) {
+            case 'switch_2d_3d':
                 return await this.changeViewMode2D3D(args.is2D);
-            case 'query_view_mode_2d_3d':
+            case 'get_view_mode':
                 return await this.queryViewMode2D3D();
             case 'set_grid_visible':
                 return await this.setGridVisible(args.visible);
-            case 'query_grid_visible':
-                return await this.queryGridVisible();
-            case 'set_icon_gizmo_3d':
+            default:
+                throw new Error(`Unknown action: ${args.action}`);
+        }
+    }
+
+    private async handleIconGizmo(args: any): Promise<ToolResponse> {
+        switch (args.action) {
+            case 'set_3d_mode':
                 return await this.setIconGizmo3D(args.is3D);
-            case 'query_icon_gizmo_3d':
-                return await this.queryIconGizmo3D();
-            case 'set_icon_gizmo_size':
+            case 'set_2d_mode':
+                return await this.setIconGizmo3D(false);
+            case 'set_size':
                 return await this.setIconGizmoSize(args.size);
-            case 'query_icon_gizmo_size':
-                return await this.queryIconGizmoSize();
-            case 'focus_camera_on_nodes':
+            default:
+                throw new Error(`Unknown action: ${args.action}`);
+        }
+    }
+
+    private async handleCameraControl(args: any): Promise<ToolResponse> {
+        switch (args.action) {
+            case 'focus':
                 return await this.focusCameraOnNodes(args.uuids);
-            case 'align_camera_with_view':
+            case 'align_camera':
                 return await this.alignCameraWithView();
-            case 'align_view_with_node':
+            case 'align_view':
                 return await this.alignViewWithNode();
-            case 'get_scene_view_status':
+            default:
+                throw new Error(`Unknown action: ${args.action}`);
+        }
+    }
+
+    private async handleStatusManagement(args: any): Promise<ToolResponse> {
+        switch (args.action) {
+            case 'get_status':
                 return await this.getSceneViewStatus();
-            case 'reset_scene_view':
+            case 'reset_default':
                 return await this.resetSceneView();
             default:
-                throw new Error(`Unknown tool: ${toolName}`);
+                throw new Error(`Unknown action: ${args.action}`);
         }
     }
 

@@ -4,71 +4,82 @@ export class ComponentTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'add_component',
-                description: 'Add a component to a specific node. IMPORTANT: You must provide the nodeUuid parameter to specify which node to add the component to.',
+                name: 'component_manage',
+                description: 'Add or remove a component on a node. Use action "add" to add a component, action "remove" to remove one. For remove, componentType must be the component\'s classId (cid, i.e. the type field from getComponents), not the script name or class name.',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['add', 'remove'],
+                            description: 'Action to perform: add or remove a component'
+                        },
                         nodeUuid: {
                             type: 'string',
-                            description: 'Target node UUID. REQUIRED: You must specify the exact node to add the component to. Use get_all_nodes or find_node_by_name to get the UUID of the desired node.'
+                            description: 'Target node UUID. Use get_all_nodes or find_node_by_name to get the UUID of the desired node.'
                         },
                         componentType: {
                             type: 'string',
-                            description: 'Component type (e.g., cc.Sprite, cc.Label, cc.Button)'
+                            description: 'Component type (e.g., cc.Sprite, cc.Label, cc.Button). For remove, use the component cid (type field from getComponents).'
                         }
                     },
-                    required: ['nodeUuid', 'componentType']
+                    required: ['action', 'nodeUuid', 'componentType']
                 }
             },
             {
-                name: 'remove_component',
-                description: 'Remove a component from a node. componentType must be the component\'s classId (cid, i.e. the type field from getComponents), not the script name or class name. Use getComponents to get the correct cid.',
+                name: 'component_script',
+                description: 'Attach or detach a script component to/from a node. Use action "attach" to attach a script, action "detach" to detach one.',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['attach', 'detach'],
+                            description: 'Action to perform: attach or detach a script component'
+                        },
                         nodeUuid: {
                             type: 'string',
                             description: 'Node UUID'
                         },
-                        componentType: {
+                        scriptPath: {
                             type: 'string',
-                            description: 'Component cid (type field from getComponents). Do NOT use script name or class name. Example: "cc.Sprite" or "9b4a7ueT9xD6aRE+AlOusy1"'
+                            description: 'Script asset path (e.g., db://assets/scripts/MyScript.ts). Required for attach.'
+                        },
+                        scriptName: {
+                            type: 'string',
+                            description: 'Script component name to detach. Required for detach.'
                         }
                     },
-                    required: ['nodeUuid', 'componentType']
+                    required: ['action', 'nodeUuid']
                 }
             },
             {
-                name: 'get_components',
-                description: 'Get all components of a node',
+                name: 'component_query',
+                description: 'Query component information. Use action "get_all" to get all components of a node, "get_info" to get specific component info, "get_available" to list available component types by category.',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_all', 'get_info', 'get_available'],
+                            description: 'Query action: get_all, get_info, or get_available'
+                        },
                         nodeUuid: {
                             type: 'string',
-                            description: 'Node UUID'
-                        }
-                    },
-                    required: ['nodeUuid']
-                }
-            },
-            {
-                name: 'get_component_info',
-                description: 'Get specific component information',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        nodeUuid: {
-                            type: 'string',
-                            description: 'Node UUID'
+                            description: 'Node UUID. Required for get_all and get_info.'
                         },
                         componentType: {
                             type: 'string',
-                            description: 'Component type to get info for'
+                            description: 'Component type to get info for. Required for get_info.'
+                        },
+                        category: {
+                            type: 'string',
+                            description: 'Component category filter. Required for get_available.',
+                            enum: ['all', 'renderer', 'ui', 'physics', 'animation', 'audio'],
+                            default: 'all'
                         }
                     },
-                    required: ['nodeUuid', 'componentType']
+                    required: ['action']
                 }
             },
             {
@@ -147,36 +158,38 @@ export class ComponentTools implements ToolExecutor {
                 }
             },
             {
-                name: 'attach_script',
-                description: 'Attach a script component to a node',
+                name: 'configure_click_event',
+                description: 'Configure or remove click events on a cc.Button component. Use action "set" to configure a click event handler, action "remove" to clear all click events.',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['set', 'remove'],
+                            description: 'Action: set a click event handler or remove all click events'
+                        },
                         nodeUuid: {
                             type: 'string',
-                            description: 'Node UUID'
+                            description: 'Node UUID of the node with the cc.Button component'
                         },
-                        scriptPath: {
+                        targetNodeUuid: {
                             type: 'string',
-                            description: 'Script asset path (e.g., db://assets/scripts/MyScript.ts)'
+                            description: 'UUID of the target node containing the script component. Required for set.'
+                        },
+                        scriptComponentType: {
+                            type: 'string',
+                            description: 'Script component type name on the target node. Required for set.'
+                        },
+                        methodName: {
+                            type: 'string',
+                            description: 'Method name to call when button is clicked. Required for set.'
+                        },
+                        customEventData: {
+                            type: 'string',
+                            description: 'Optional custom event data string passed to the handler'
                         }
                     },
-                    required: ['nodeUuid', 'scriptPath']
-                }
-            },
-            {
-                name: 'get_available_components',
-                description: 'Get list of available component types',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        category: {
-                            type: 'string',
-                            description: 'Component category filter',
-                            enum: ['all', 'renderer', 'ui', 'physics', 'animation', 'audio'],
-                            default: 'all'
-                        }
-                    }
+                    required: ['action', 'nodeUuid']
                 }
             }
         ];
@@ -184,23 +197,71 @@ export class ComponentTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'add_component':
-                return await this.addComponent(args.nodeUuid, args.componentType);
-            case 'remove_component':
-                return await this.removeComponent(args.nodeUuid, args.componentType);
-            case 'get_components':
-                return await this.getComponents(args.nodeUuid);
-            case 'get_component_info':
-                return await this.getComponentInfo(args.nodeUuid, args.componentType);
+            case 'component_manage':
+                switch (args.action) {
+                    case 'add':
+                        return await this.addComponent(args.nodeUuid, args.componentType);
+                    case 'remove':
+                        return await this.removeComponent(args.nodeUuid, args.componentType);
+                    default:
+                        return { success: false, error: `Unknown action: ${args.action}. Use "add" or "remove".` };
+                }
+            case 'component_script':
+                switch (args.action) {
+                    case 'attach':
+                        return await this.attachScript(args.nodeUuid, args.scriptPath);
+                    case 'detach':
+                        return await this.detachScript(args.nodeUuid, args.scriptName);
+                    default:
+                        return { success: false, error: `Unknown action: ${args.action}. Use "attach" or "detach".` };
+                }
+            case 'component_query':
+                switch (args.action) {
+                    case 'get_all':
+                        return await this.getComponents(args.nodeUuid);
+                    case 'get_info':
+                        return await this.getComponentInfo(args.nodeUuid, args.componentType);
+                    case 'get_available':
+                        return await this.getAvailableComponents(args.category);
+                    default:
+                        return { success: false, error: `Unknown action: ${args.action}. Use "get_all", "get_info", or "get_available".` };
+                }
             case 'set_component_property':
                 return await this.setComponentProperty(args);
-            case 'attach_script':
-                return await this.attachScript(args.nodeUuid, args.scriptPath);
-            case 'get_available_components':
-                return await this.getAvailableComponents(args.category);
+            case 'configure_click_event':
+                return await this.configureClickEvent(args.action, args);
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
         }
+    }
+
+    private async detachScript(nodeUuid: string, scriptName: string): Promise<ToolResponse> {
+        return await this.removeComponent(nodeUuid, scriptName);
+    }
+
+    private async configureClickEvent(action: string, args: any): Promise<ToolResponse> {
+        if (action === 'remove') {
+            // Set _clickEvents to empty array on cc.Button component
+            return await this.setButtonProperty(args.nodeUuid, '_clickEvents', 'nodeArray', []);
+        }
+        // action === 'set'
+        const clickEvent = [{
+            target: { __uuid__: args.targetNodeUuid },
+            component: args.scriptComponentType,
+            handler: args.methodName,
+            customEventData: args.customEventData || ''
+        }];
+        return await this.setButtonProperty(args.nodeUuid, '_clickEvents', 'nodeArray', clickEvent);
+    }
+
+    private async setButtonProperty(nodeUuid: string, property: string, propertyType: string, value: any): Promise<ToolResponse> {
+        return await this.setComponentProperty({
+            nodeUuid,
+            componentType: 'cc.Button',
+            property,
+            propertyType,
+            value
+        });
     }
 
     private async addComponent(nodeUuid: string, componentType: string): Promise<ToolResponse> {

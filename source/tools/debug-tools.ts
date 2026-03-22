@@ -32,31 +32,113 @@ export class DebugTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'get_console_logs',
-                description: 'Get editor console logs',
+                name: 'debug_console',
+                description: '编辑器控制台操作：获取控制台日志、清空控制台',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_logs', 'clear'],
+                            description: '操作类型'
+                        },
                         limit: {
                             type: 'number',
-                            description: 'Number of recent logs to retrieve',
+                            description: '获取的日志条数（get_logs 时使用）',
                             default: 100
                         },
                         filter: {
                             type: 'string',
-                            description: 'Filter logs by type',
+                            description: '按类型过滤日志（get_logs 时使用）',
                             enum: ['all', 'log', 'warn', 'error', 'info'],
                             default: 'all'
                         }
-                    }
+                    },
+                    required: ['action']
                 }
             },
             {
-                name: 'clear_console',
-                description: 'Clear editor console',
+                name: 'debug_logs',
+                description: '项目日志操作：获取项目日志文件内容、获取日志文件信息、搜索日志',
                 inputSchema: {
                     type: 'object',
-                    properties: {}
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_logs', 'get_file_info', 'search'],
+                            description: '操作类型'
+                        },
+                        lines: {
+                            type: 'number',
+                            description: '读取日志文件末尾的行数（get_logs 时使用）',
+                            default: 100,
+                            minimum: 1,
+                            maximum: 10000
+                        },
+                        filterKeyword: {
+                            type: 'string',
+                            description: '按关键词过滤日志（get_logs 时使用）'
+                        },
+                        logLevel: {
+                            type: 'string',
+                            description: '按日志级别过滤（get_logs 时使用）',
+                            enum: ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'ALL'],
+                            default: 'ALL'
+                        },
+                        pattern: {
+                            type: 'string',
+                            description: '搜索模式，支持正则表达式（search 时使用）'
+                        },
+                        maxResults: {
+                            type: 'number',
+                            description: '最大匹配结果数（search 时使用）',
+                            default: 20,
+                            minimum: 1,
+                            maximum: 100
+                        },
+                        contextLines: {
+                            type: 'number',
+                            description: '每个匹配结果周围的上下文行数（search 时使用）',
+                            default: 2,
+                            minimum: 0,
+                            maximum: 10
+                        }
+                    },
+                    required: ['action']
+                }
+            },
+            {
+                name: 'debug_system',
+                description: '调试系统操作：获取编辑器信息、获取性能统计、验证场景、获取节点树',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_editor_info', 'get_performance', 'validate_scene', 'get_node_tree'],
+                            description: '操作类型'
+                        },
+                        rootUuid: {
+                            type: 'string',
+                            description: '根节点 UUID（get_node_tree 时使用，不提供则使用场景根节点）'
+                        },
+                        maxDepth: {
+                            type: 'number',
+                            description: '最大树深度（get_node_tree 时使用）',
+                            default: 10
+                        },
+                        checkMissingAssets: {
+                            type: 'boolean',
+                            description: '是否检查缺失的资源引用（validate_scene 时使用）',
+                            default: true
+                        },
+                        checkPerformance: {
+                            type: 'boolean',
+                            description: '是否检查性能问题（validate_scene 时使用）',
+                            default: true
+                        }
+                    },
+                    required: ['action']
                 }
             },
             {
@@ -72,149 +154,49 @@ export class DebugTools implements ToolExecutor {
                     },
                     required: ['script']
                 }
-            },
-            {
-                name: 'get_node_tree',
-                description: 'Get detailed node tree for debugging',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        rootUuid: {
-                            type: 'string',
-                            description: 'Root node UUID (optional, uses scene root if not provided)'
-                        },
-                        maxDepth: {
-                            type: 'number',
-                            description: 'Maximum tree depth',
-                            default: 10
-                        }
-                    }
-                }
-            },
-            {
-                name: 'get_performance_stats',
-                description: 'Get performance statistics',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'validate_scene',
-                description: 'Validate current scene for issues',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        checkMissingAssets: {
-                            type: 'boolean',
-                            description: 'Check for missing asset references',
-                            default: true
-                        },
-                        checkPerformance: {
-                            type: 'boolean',
-                            description: 'Check for performance issues',
-                            default: true
-                        }
-                    }
-                }
-            },
-            {
-                name: 'get_editor_info',
-                description: 'Get editor and environment information',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'get_project_logs',
-                description: 'Get project logs from temp/logs/project.log file',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        lines: {
-                            type: 'number',
-                            description: 'Number of lines to read from the end of the log file (default: 100)',
-                            default: 100,
-                            minimum: 1,
-                            maximum: 10000
-                        },
-                        filterKeyword: {
-                            type: 'string',
-                            description: 'Filter logs containing specific keyword (optional)'
-                        },
-                        logLevel: {
-                            type: 'string',
-                            description: 'Filter by log level',
-                            enum: ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'ALL'],
-                            default: 'ALL'
-                        }
-                    }
-                }
-            },
-            {
-                name: 'get_log_file_info',
-                description: 'Get information about the project log file',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'search_project_logs',
-                description: 'Search for specific patterns or errors in project logs',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        pattern: {
-                            type: 'string',
-                            description: 'Search pattern (supports regex)'
-                        },
-                        maxResults: {
-                            type: 'number',
-                            description: 'Maximum number of matching results',
-                            default: 20,
-                            minimum: 1,
-                            maximum: 100
-                        },
-                        contextLines: {
-                            type: 'number',
-                            description: 'Number of context lines to show around each match',
-                            default: 2,
-                            minimum: 0,
-                            maximum: 10
-                        }
-                    },
-                    required: ['pattern']
-                }
             }
         ];
     }
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'get_console_logs':
-                return await this.getConsoleLogs(args.limit, args.filter);
-            case 'clear_console':
-                return await this.clearConsole();
+            case 'debug_console':
+                return await this.handleDebugConsole(args.action, args);
+            case 'debug_logs':
+                return await this.handleDebugLogs(args.action, args);
+            case 'debug_system':
+                return await this.handleDebugSystem(args.action, args);
             case 'execute_script':
                 return await this.executeScript(args.script);
-            case 'get_node_tree':
-                return await this.getNodeTree(args.rootUuid, args.maxDepth);
-            case 'get_performance_stats':
-                return await this.getPerformanceStats();
-            case 'validate_scene':
-                return await this.validateScene(args);
-            case 'get_editor_info':
-                return await this.getEditorInfo();
-            case 'get_project_logs':
-                return await this.getProjectLogs(args.lines, args.filterKeyword, args.logLevel);
-            case 'get_log_file_info':
-                return await this.getLogFileInfo();
-            case 'search_project_logs':
-                return await this.searchProjectLogs(args.pattern, args.maxResults, args.contextLines);
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
+        }
+    }
+
+    private async handleDebugConsole(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'get_logs': return await this.getConsoleLogs(args.limit, args.filter);
+            case 'clear': return await this.clearConsole();
+            default: return { success: false, error: `Unknown action: ${action}` };
+        }
+    }
+
+    private async handleDebugLogs(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'get_logs': return await this.getProjectLogs(args.lines, args.filterKeyword, args.logLevel);
+            case 'get_file_info': return await this.getLogFileInfo();
+            case 'search': return await this.searchProjectLogs(args.pattern, args.maxResults, args.contextLines);
+            default: return { success: false, error: `Unknown action: ${action}` };
+        }
+    }
+
+    private async handleDebugSystem(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'get_editor_info': return await this.getEditorInfo();
+            case 'get_performance': return await this.getPerformanceStats();
+            case 'validate_scene': return await this.validateScene(args);
+            case 'get_node_tree': return await this.getNodeTree(args.rootUuid, args.maxDepth);
+            default: return { success: false, error: `Unknown action: ${action}` };
         }
     }
 

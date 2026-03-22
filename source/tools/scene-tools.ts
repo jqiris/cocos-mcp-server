@@ -4,92 +4,41 @@ export class SceneTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'get_current_scene',
-                description: 'Get current scene information',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'get_scene_list',
-                description: 'Get all scenes in the project',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'open_scene',
-                description: 'Open a scene by path',
+                name: 'scene_management',
+                description: '场景管理：获取当前场景信息、列出所有场景、打开/关闭场景、创建新场景、保存场景',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_current', 'get_list', 'open', 'close', 'create', 'save', 'save_as'],
+                            description: '操作类型'
+                        },
                         scenePath: {
                             type: 'string',
-                            description: 'The scene file path'
-                        }
-                    },
-                    required: ['scenePath']
-                }
-            },
-            {
-                name: 'save_scene',
-                description: 'Save current scene',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'create_scene',
-                description: 'Create a new scene asset',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
+                            description: '场景文件路径（open/save_as 时使用）'
+                        },
                         sceneName: {
                             type: 'string',
-                            description: 'Name of the new scene'
+                            description: '场景名称（create 时使用）'
                         },
                         savePath: {
                             type: 'string',
-                            description: 'Path to save the scene (e.g., db://assets/scenes/NewScene.scene)'
+                            description: '保存路径（create 时使用）'
                         }
                     },
-                    required: ['sceneName', 'savePath']
+                    required: ['action']
                 }
             },
             {
-                name: 'save_scene_as',
-                description: 'Save scene as new file',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        path: {
-                            type: 'string',
-                            description: 'Path to save the scene'
-                        }
-                    },
-                    required: ['path']
-                }
-            },
-            {
-                name: 'close_scene',
-                description: 'Close current scene',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'get_scene_hierarchy',
-                description: 'Get the complete hierarchy of current scene',
+                name: 'scene_hierarchy',
+                description: '获取当前场景的完整节点层级结构，支持可选的组件信息展示',
                 inputSchema: {
                     type: 'object',
                     properties: {
                         includeComponents: {
                             type: 'boolean',
-                            description: 'Include component information',
+                            description: '是否包含组件信息',
                             default: false
                         }
                     }
@@ -100,24 +49,25 @@ export class SceneTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'get_current_scene':
-                return await this.getCurrentScene();
-            case 'get_scene_list':
-                return await this.getSceneList();
-            case 'open_scene':
-                return await this.openScene(args.scenePath);
-            case 'save_scene':
-                return await this.saveScene();
-            case 'create_scene':
-                return await this.createScene(args.sceneName, args.savePath);
-            case 'save_scene_as':
-                return await this.saveSceneAs(args.path);
-            case 'close_scene':
-                return await this.closeScene();
-            case 'get_scene_hierarchy':
+            case 'scene_management':
+                return await this.handleSceneManagement(args.action, args);
+            case 'scene_hierarchy':
                 return await this.getSceneHierarchy(args.includeComponents);
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
+        }
+    }
+
+    private async handleSceneManagement(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'get_current': return await this.getCurrentScene();
+            case 'get_list': return await this.getSceneList();
+            case 'open': return await this.openScene(args.scenePath);
+            case 'close': return await this.closeScene();
+            case 'create': return await this.createScene(args.sceneName, args.savePath);
+            case 'save': return await this.saveScene();
+            case 'save_as': return await this.saveSceneAs(args.scenePath);
+            default: return { success: false, error: `Unknown action: ${action}` };
         }
     }
 

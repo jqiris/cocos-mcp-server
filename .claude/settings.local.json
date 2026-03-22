@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find src/ -name *.ts -o -name *.js)",
+      "mcp__zai-mcp-server__analyze_image",
+      "mcp__zai-mcp-server__extract_text_from_screenshot",
+      "Bash(npx tsc:*)",
+      "Read(//c/Users/jason/AppData/Local/Temp/claude/d--labs-cocos-mcp-server/0e90e88b-924a-4519-8940-456bd7a3f0d3/tasks//**)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//d/labs/cocos-mcp-server/**)",
+      "Bash(done)",
+      "Bash(find /d/labs/cocos-mcp-server -name *.marker -o -name *-state.json -o -name *.db)",
+      "Read(//c/Users/jason/.claude/**)"
+    ],
+    "additionalDirectories": [
+      "D:\\labs\\cocos-mcp-server\\.omc"
+    ]
+  }
+}

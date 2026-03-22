@@ -4,57 +4,38 @@ export class ServerTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'query_server_ip_list',
-                description: 'Query server IP list',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_sorted_server_ip_list',
-                description: 'Get sorted server IP list',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_server_port',
-                description: 'Query editor server current port',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'get_server_status',
-                description: 'Get comprehensive server status information',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'check_server_connectivity',
-                description: 'Check server connectivity and network status',
+                name: 'server_information',
+                description: '服务器信息：查询IP地址列表、排序IP列表、端口、基本状态',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        timeout: {
-                            type: 'number',
-                            description: 'Timeout in milliseconds',
-                            default: 5000
+                        action: {
+                            type: 'string',
+                            enum: ['get_ip_list', 'get_sorted_ip_list', 'get_port', 'get_status'],
+                            description: '操作类型'
                         }
-                    }
+                    },
+                    required: ['action']
                 }
             },
             {
-                name: 'get_network_interfaces',
-                description: 'Get available network interfaces',
+                name: 'server_connectivity',
+                description: '服务器连接与网络：检查连接状态、获取网络接口',
                 inputSchema: {
                     type: 'object',
-                    properties: {}
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['check_connectivity', 'get_network_interfaces'],
+                            description: '操作类型'
+                        },
+                        timeout: {
+                            type: 'number',
+                            description: '连接超时时间（毫秒），仅用于 check_connectivity',
+                            default: 5000
+                        }
+                    },
+                    required: ['action']
                 }
             }
         ];
@@ -62,20 +43,30 @@ export class ServerTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'query_server_ip_list':
-                return await this.queryServerIPList();
-            case 'query_sorted_server_ip_list':
-                return await this.querySortedServerIPList();
-            case 'query_server_port':
-                return await this.queryServerPort();
-            case 'get_server_status':
-                return await this.getServerStatus();
-            case 'check_server_connectivity':
-                return await this.checkServerConnectivity(args.timeout);
-            case 'get_network_interfaces':
-                return await this.getNetworkInterfaces();
+            case 'server_information':
+                return await this.handleServerInformation(args.action, args);
+            case 'server_connectivity':
+                return await this.handleServerConnectivity(args.action, args);
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
+        }
+    }
+
+    private async handleServerInformation(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'get_ip_list': return await this.queryServerIPList();
+            case 'get_sorted_ip_list': return await this.querySortedServerIPList();
+            case 'get_port': return await this.queryServerPort();
+            case 'get_status': return await this.getServerStatus();
+            default: return { success: false, error: `Unknown action: ${action}` };
+        }
+    }
+
+    private async handleServerConnectivity(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'check_connectivity': return await this.checkServerConnectivity(args.timeout);
+            case 'get_network_interfaces': return await this.getNetworkInterfaces();
+            default: return { success: false, error: `Unknown action: ${action}` };
         }
     }
 

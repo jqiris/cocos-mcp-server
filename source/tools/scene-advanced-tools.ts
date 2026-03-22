@@ -4,29 +4,160 @@ export class SceneAdvancedTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'reset_node_property',
-                description: 'Reset node property to default value',
+                name: 'node_clipboard',
+                description: 'Copy, paste, or cut nodes in the scene. Copy stores nodes for later paste. Paste creates duplicates at a target parent. Cut copies and marks nodes for move.',
                 inputSchema: {
                     type: 'object',
                     properties: {
-                        uuid: {
+                        action: {
                             type: 'string',
-                            description: 'Node UUID'
+                            enum: ['copy', 'paste', 'cut'],
+                            description: 'Clipboard action: copy (store nodes), paste (duplicate at target), cut (copy + mark for move)'
                         },
-                        path: {
+                        uuids: {
+                            oneOf: [
+                                { type: 'string' },
+                                { type: 'array', items: { type: 'string' } }
+                            ],
+                            description: 'Node UUID or array of UUIDs (for "copy" and "cut" actions; also for "paste" to specify which nodes)'
+                        },
+                        target: {
                             type: 'string',
-                            description: 'Property path (e.g., position, rotation, scale)'
+                            description: 'Target parent node UUID (for "paste" action)'
+                        },
+                        keepWorldTransform: {
+                            type: 'boolean',
+                            description: 'Keep world transform coordinates (for "paste" action)',
+                            default: false
                         }
                     },
-                    required: ['uuid', 'path']
+                    required: ['action']
                 }
             },
             {
-                name: 'move_array_element',
-                description: 'Move array element position',
+                name: 'scene_execution_control',
+                description: 'Execute component methods, scene scripts, or restore prefab instances. Use for invoking runtime methods on components, running scene scripts, or reverting prefab changes.',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['execute_component_method', 'execute_scene_script', 'restore_prefab'],
+                            description: 'Execution action: execute_component_method, execute_scene_script, restore_prefab'
+                        },
+                        uuid: {
+                            type: 'string',
+                            description: 'Component UUID (for "execute_component_method" action)'
+                        },
+                        name: {
+                            type: 'string',
+                            description: 'Method name (for "execute_component_method" action) or plugin name (for "execute_scene_script" action)'
+                        },
+                        method: {
+                            type: 'string',
+                            description: 'Method name (for "execute_scene_script" action)'
+                        },
+                        args: {
+                            type: 'array',
+                            description: 'Method arguments (for "execute_component_method" and "execute_scene_script" actions)',
+                            default: []
+                        },
+                        nodeUuid: {
+                            type: 'string',
+                            description: 'Node UUID (for "restore_prefab" action)'
+                        },
+                        assetUuid: {
+                            type: 'string',
+                            description: 'Prefab asset UUID (for "restore_prefab" action)'
+                        }
+                    },
+                    required: ['action']
+                }
+            },
+            {
+                name: 'scene_state_management',
+                description: 'Manage scene state: create/abort snapshots, begin/end/cancel undo recording, or soft reload the scene. Use for state preservation and undo support.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['create_snapshot', 'abort_snapshot', 'begin_undo_recording', 'end_undo_recording', 'cancel_undo_recording', 'soft_reload'],
+                            description: 'State management action'
+                        },
+                        nodeUuid: {
+                            type: 'string',
+                            description: 'Node UUID to record (for "begin_undo_recording" action)'
+                        },
+                        undoId: {
+                            type: 'string',
+                            description: 'Undo recording ID from begin_undo_recording (for "end_undo_recording" and "cancel_undo_recording" actions)'
+                        }
+                    },
+                    required: ['action']
+                }
+            },
+            {
+                name: 'scene_query_system',
+                description: 'Query scene state and metadata. Check if scene is ready or dirty, list registered classes, query available components, check component scripts, or find nodes using a specific asset.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['query_ready', 'query_dirty', 'query_classes', 'query_components', 'query_component_has_script', 'query_nodes_by_asset'],
+                            description: 'Query action to perform'
+                        },
+                        extends: {
+                            type: 'string',
+                            description: 'Filter classes that extend this base class (for "query_classes" action)'
+                        },
+                        className: {
+                            type: 'string',
+                            description: 'Script class name to check (for "query_component_has_script" action)'
+                        },
+                        assetUuid: {
+                            type: 'string',
+                            description: 'Asset UUID to search for (for "query_nodes_by_asset" action)'
+                        }
+                    },
+                    required: ['action']
+                }
+            },
+            {
+                name: 'node_property_management',
+                description: 'Reset node properties, transforms, or entire components to their default values.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['reset_property', 'reset_transform', 'reset_component'],
+                            description: 'Reset action: reset_property (specific property), reset_transform (position/rotation/scale), reset_component (entire component)'
+                        },
+                        uuid: {
+                            type: 'string',
+                            description: 'Node or component UUID'
+                        },
+                        path: {
+                            type: 'string',
+                            description: 'Property path to reset (for "reset_property" action, e.g., position, rotation, scale)'
+                        }
+                    },
+                    required: ['action', 'uuid']
+                }
+            },
+            {
+                name: 'node_array_management',
+                description: 'Manage array properties on nodes: move array elements by offset or remove elements at specific indices.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['move_element', 'remove_element'],
+                            description: 'Array management action: move_element (shift position) or remove_element (delete at index)'
+                        },
                         uuid: {
                             type: 'string',
                             description: 'Node UUID'
@@ -37,319 +168,18 @@ export class SceneAdvancedTools implements ToolExecutor {
                         },
                         target: {
                             type: 'number',
-                            description: 'Target item original index'
+                            description: 'Target item original index (for "move_element" action)'
                         },
                         offset: {
                             type: 'number',
-                            description: 'Offset amount (positive or negative)'
-                        }
-                    },
-                    required: ['uuid', 'path', 'target', 'offset']
-                }
-            },
-            {
-                name: 'remove_array_element',
-                description: 'Remove array element at specific index',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        },
-                        path: {
-                            type: 'string',
-                            description: 'Array property path'
+                            description: 'Offset amount, positive or negative (for "move_element" action)'
                         },
                         index: {
                             type: 'number',
-                            description: 'Target item index to remove'
+                            description: 'Target item index to remove (for "remove_element" action)'
                         }
                     },
-                    required: ['uuid', 'path', 'index']
-                }
-            },
-            {
-                name: 'copy_node',
-                description: 'Copy node for later paste operation',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuids: {
-                            oneOf: [
-                                { type: 'string' },
-                                { type: 'array', items: { type: 'string' } }
-                            ],
-                            description: 'Node UUID or array of UUIDs to copy'
-                        }
-                    },
-                    required: ['uuids']
-                }
-            },
-            {
-                name: 'paste_node',
-                description: 'Paste previously copied nodes',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        target: {
-                            type: 'string',
-                            description: 'Target parent node UUID'
-                        },
-                        uuids: {
-                            oneOf: [
-                                { type: 'string' },
-                                { type: 'array', items: { type: 'string' } }
-                            ],
-                            description: 'Node UUIDs to paste'
-                        },
-                        keepWorldTransform: {
-                            type: 'boolean',
-                            description: 'Keep world transform coordinates',
-                            default: false
-                        }
-                    },
-                    required: ['target', 'uuids']
-                }
-            },
-            {
-                name: 'cut_node',
-                description: 'Cut node (copy + mark for move)',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuids: {
-                            oneOf: [
-                                { type: 'string' },
-                                { type: 'array', items: { type: 'string' } }
-                            ],
-                            description: 'Node UUID or array of UUIDs to cut'
-                        }
-                    },
-                    required: ['uuids']
-                }
-            },
-            {
-                name: 'reset_node_transform',
-                description: 'Reset node position, rotation and scale',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        }
-                    },
-                    required: ['uuid']
-                }
-            },
-            {
-                name: 'reset_component',
-                description: 'Reset component to default values',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Component UUID'
-                        }
-                    },
-                    required: ['uuid']
-                }
-            },
-            {
-                name: 'restore_prefab',
-                description: 'Restore prefab instance from asset',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        nodeUuid: {
-                            type: 'string',
-                            description: 'Node UUID'
-                        },
-                        assetUuid: {
-                            type: 'string',
-                            description: 'Prefab asset UUID'
-                        }
-                    },
-                    required: ['nodeUuid', 'assetUuid']
-                }
-            },
-            {
-                name: 'execute_component_method',
-                description: 'Execute method on component',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        uuid: {
-                            type: 'string',
-                            description: 'Component UUID'
-                        },
-                        name: {
-                            type: 'string',
-                            description: 'Method name'
-                        },
-                        args: {
-                            type: 'array',
-                            description: 'Method arguments',
-                            default: []
-                        }
-                    },
-                    required: ['uuid', 'name']
-                }
-            },
-            {
-                name: 'execute_scene_script',
-                description: 'Execute scene script method',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'string',
-                            description: 'Plugin name'
-                        },
-                        method: {
-                            type: 'string',
-                            description: 'Method name'
-                        },
-                        args: {
-                            type: 'array',
-                            description: 'Method arguments',
-                            default: []
-                        }
-                    },
-                    required: ['name', 'method']
-                }
-            },
-            {
-                name: 'scene_snapshot',
-                description: 'Create scene state snapshot',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'scene_snapshot_abort',
-                description: 'Abort scene snapshot creation',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'begin_undo_recording',
-                description: 'Begin recording undo data',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        nodeUuid: {
-                            type: 'string',
-                            description: 'Node UUID to record'
-                        }
-                    },
-                    required: ['nodeUuid']
-                }
-            },
-            {
-                name: 'end_undo_recording',
-                description: 'End recording undo data',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        undoId: {
-                            type: 'string',
-                            description: 'Undo recording ID from begin_undo_recording'
-                        }
-                    },
-                    required: ['undoId']
-                }
-            },
-            {
-                name: 'cancel_undo_recording',
-                description: 'Cancel undo recording',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        undoId: {
-                            type: 'string',
-                            description: 'Undo recording ID to cancel'
-                        }
-                    },
-                    required: ['undoId']
-                }
-            },
-            {
-                name: 'soft_reload_scene',
-                description: 'Soft reload current scene',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_scene_ready',
-                description: 'Check if scene is ready',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_scene_dirty',
-                description: 'Check if scene has unsaved changes',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_scene_classes',
-                description: 'Query all registered classes',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        extends: {
-                            type: 'string',
-                            description: 'Filter classes that extend this base class'
-                        }
-                    }
-                }
-            },
-            {
-                name: 'query_scene_components',
-                description: 'Query available scene components',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'query_component_has_script',
-                description: 'Check if component has script',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        className: {
-                            type: 'string',
-                            description: 'Script class name to check'
-                        }
-                    },
-                    required: ['className']
-                }
-            },
-            {
-                name: 'query_nodes_by_asset_uuid',
-                description: 'Find nodes that use specific asset UUID',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        assetUuid: {
-                            type: 'string',
-                            description: 'Asset UUID to search for'
-                        }
-                    },
-                    required: ['assetUuid']
+                    required: ['action', 'uuid', 'path']
                 }
             }
         ];
@@ -357,54 +187,79 @@ export class SceneAdvancedTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'reset_node_property':
-                return await this.resetNodeProperty(args.uuid, args.path);
-            case 'move_array_element':
-                return await this.moveArrayElement(args.uuid, args.path, args.target, args.offset);
-            case 'remove_array_element':
-                return await this.removeArrayElement(args.uuid, args.path, args.index);
-            case 'copy_node':
-                return await this.copyNode(args.uuids);
-            case 'paste_node':
-                return await this.pasteNode(args.target, args.uuids, args.keepWorldTransform);
-            case 'cut_node':
-                return await this.cutNode(args.uuids);
-            case 'reset_node_transform':
-                return await this.resetNodeTransform(args.uuid);
-            case 'reset_component':
-                return await this.resetComponent(args.uuid);
-            case 'restore_prefab':
-                return await this.restorePrefab(args.nodeUuid, args.assetUuid);
-            case 'execute_component_method':
-                return await this.executeComponentMethod(args.uuid, args.name, args.args);
-            case 'execute_scene_script':
-                return await this.executeSceneScript(args.name, args.method, args.args);
-            case 'scene_snapshot':
-                return await this.sceneSnapshot();
-            case 'scene_snapshot_abort':
-                return await this.sceneSnapshotAbort();
-            case 'begin_undo_recording':
-                return await this.beginUndoRecording(args.nodeUuid);
-            case 'end_undo_recording':
-                return await this.endUndoRecording(args.undoId);
-            case 'cancel_undo_recording':
-                return await this.cancelUndoRecording(args.undoId);
-            case 'soft_reload_scene':
-                return await this.softReloadScene();
-            case 'query_scene_ready':
-                return await this.querySceneReady();
-            case 'query_scene_dirty':
-                return await this.querySceneDirty();
-            case 'query_scene_classes':
-                return await this.querySceneClasses(args.extends);
-            case 'query_scene_components':
-                return await this.querySceneComponents();
-            case 'query_component_has_script':
-                return await this.queryComponentHasScript(args.className);
-            case 'query_nodes_by_asset_uuid':
-                return await this.queryNodesByAssetUuid(args.assetUuid);
+            case 'node_clipboard':
+                return await this.handleNodeClipboard(args.action, args);
+            case 'scene_execution_control':
+                return await this.handleSceneExecutionControl(args.action, args);
+            case 'scene_state_management':
+                return await this.handleSceneStateManagement(args.action, args);
+            case 'scene_query_system':
+                return await this.handleSceneQuerySystem(args.action, args);
+            case 'node_property_management':
+                return await this.handleNodePropertyManagement(args.action, args);
+            case 'node_array_management':
+                return await this.handleNodeArrayManagement(args.action, args);
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
+        }
+    }
+
+    private async handleNodeClipboard(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'copy': return await this.copyNode(args.uuids);
+            case 'paste': return await this.pasteNode(args.target, args.uuids, args.keepWorldTransform);
+            case 'cut': return await this.cutNode(args.uuids);
+            default: return { success: false, error: `Unknown node_clipboard action: ${action}` };
+        }
+    }
+
+    private async handleSceneExecutionControl(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'execute_component_method': return await this.executeComponentMethod(args.uuid, args.name, args.args);
+            case 'execute_scene_script': return await this.executeSceneScript(args.name, args.method, args.args);
+            case 'restore_prefab': return await this.restorePrefab(args.nodeUuid, args.assetUuid);
+            default: return { success: false, error: `Unknown scene_execution_control action: ${action}` };
+        }
+    }
+
+    private async handleSceneStateManagement(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'create_snapshot': return await this.sceneSnapshot();
+            case 'abort_snapshot': return await this.sceneSnapshotAbort();
+            case 'begin_undo_recording': return await this.beginUndoRecording(args.nodeUuid);
+            case 'end_undo_recording': return await this.endUndoRecording(args.undoId);
+            case 'cancel_undo_recording': return await this.cancelUndoRecording(args.undoId);
+            case 'soft_reload': return await this.softReloadScene();
+            default: return { success: false, error: `Unknown scene_state_management action: ${action}` };
+        }
+    }
+
+    private async handleSceneQuerySystem(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'query_ready': return await this.querySceneReady();
+            case 'query_dirty': return await this.querySceneDirty();
+            case 'query_classes': return await this.querySceneClasses(args.extends);
+            case 'query_components': return await this.querySceneComponents();
+            case 'query_component_has_script': return await this.queryComponentHasScript(args.className);
+            case 'query_nodes_by_asset': return await this.queryNodesByAssetUuid(args.assetUuid);
+            default: return { success: false, error: `Unknown scene_query_system action: ${action}` };
+        }
+    }
+
+    private async handleNodePropertyManagement(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'reset_property': return await this.resetNodeProperty(args.uuid, args.path);
+            case 'reset_transform': return await this.resetNodeTransform(args.uuid);
+            case 'reset_component': return await this.resetComponent(args.uuid);
+            default: return { success: false, error: `Unknown node_property_management action: ${action}` };
+        }
+    }
+
+    private async handleNodeArrayManagement(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'move_element': return await this.moveArrayElement(args.uuid, args.path, args.target, args.offset);
+            case 'remove_element': return await this.removeArrayElement(args.uuid, args.path, args.index);
+            default: return { success: false, error: `Unknown node_array_management action: ${action}` };
         }
     }
 

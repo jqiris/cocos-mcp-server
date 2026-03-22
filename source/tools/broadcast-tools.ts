@@ -11,65 +11,46 @@ export class BroadcastTools implements ToolExecutor {
     getTools(): ToolDefinition[] {
         return [
             {
-                name: 'get_broadcast_log',
-                description: 'Get recent broadcast messages log',
+                name: 'broadcast_log_management',
+                description: '广播日志管理：获取广播消息日志、清空日志',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['get_log', 'clear_log'],
+                            description: '操作类型'
+                        },
                         limit: {
                             type: 'number',
-                            description: 'Number of recent messages to return',
+                            description: '返回的最近消息数量，仅用于 get_log',
                             default: 50
                         },
                         messageType: {
                             type: 'string',
-                            description: 'Filter by message type (optional)'
+                            description: '按消息类型过滤，仅用于 get_log'
                         }
-                    }
+                    },
+                    required: ['action']
                 }
             },
             {
-                name: 'listen_broadcast',
-                description: 'Start listening for specific broadcast messages',
+                name: 'broadcast_listener_management',
+                description: '广播监听管理：开始监听、停止监听、获取活跃监听器列表',
                 inputSchema: {
                     type: 'object',
                     properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['start_listening', 'stop_listening', 'get_active_listeners'],
+                            description: '操作类型'
+                        },
                         messageType: {
                             type: 'string',
-                            description: 'Message type to listen for'
+                            description: '要监听或停止监听的消息类型，用于 start_listening 和 stop_listening'
                         }
                     },
-                    required: ['messageType']
-                }
-            },
-            {
-                name: 'stop_listening',
-                description: 'Stop listening for specific broadcast messages',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        messageType: {
-                            type: 'string',
-                            description: 'Message type to stop listening for'
-                        }
-                    },
-                    required: ['messageType']
-                }
-            },
-            {
-                name: 'clear_broadcast_log',
-                description: 'Clear the broadcast messages log',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
-                }
-            },
-            {
-                name: 'get_active_listeners',
-                description: 'Get list of active broadcast listeners',
-                inputSchema: {
-                    type: 'object',
-                    properties: {}
+                    required: ['action']
                 }
             }
         ];
@@ -77,18 +58,29 @@ export class BroadcastTools implements ToolExecutor {
 
     async execute(toolName: string, args: any): Promise<ToolResponse> {
         switch (toolName) {
-            case 'get_broadcast_log':
-                return await this.getBroadcastLog(args.limit, args.messageType);
-            case 'listen_broadcast':
-                return await this.listenBroadcast(args.messageType);
-            case 'stop_listening':
-                return await this.stopListening(args.messageType);
-            case 'clear_broadcast_log':
-                return await this.clearBroadcastLog();
-            case 'get_active_listeners':
-                return await this.getActiveListeners();
+            case 'broadcast_log_management':
+                return await this.handleBroadcastLogManagement(args.action, args);
+            case 'broadcast_listener_management':
+                return await this.handleBroadcastListenerManagement(args.action, args);
             default:
                 throw new Error(`Unknown tool: ${toolName}`);
+        }
+    }
+
+    private async handleBroadcastLogManagement(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'get_log': return await this.getBroadcastLog(args.limit, args.messageType);
+            case 'clear_log': return await this.clearBroadcastLog();
+            default: return { success: false, error: `Unknown action: ${action}` };
+        }
+    }
+
+    private async handleBroadcastListenerManagement(action: string, args: any): Promise<ToolResponse> {
+        switch (action) {
+            case 'start_listening': return await this.listenBroadcast(args.messageType);
+            case 'stop_listening': return await this.stopListening(args.messageType);
+            case 'get_active_listeners': return await this.getActiveListeners();
+            default: return { success: false, error: `Unknown action: ${action}` };
         }
     }
 
