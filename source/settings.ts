@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { MCPServerSettings, ToolManagerSettings, ToolConfiguration, ToolConfig } from './types';
+import { MCPServerSettings, ToolManagerSettings, ToolConfiguration, ToolConfig, VerificationSettings } from './types';
 
 const DEFAULT_SETTINGS: MCPServerSettings = {
     port: 3000,
@@ -16,12 +16,63 @@ const DEFAULT_TOOL_MANAGER_SETTINGS: ToolManagerSettings = {
     maxConfigSlots: 5
 };
 
+const DEFAULT_VERIFICATION_SETTINGS: VerificationSettings = {
+    defaultTolerance: {
+        pixelThreshold: 0.15,
+        similarityThreshold: 0.85,
+        minRegionSize: 500,
+        minRegionPercent: 0.5,
+        positionTolerance: 10,
+        strictMode: false
+    },
+    presets: [
+        {
+            name: '宽松',
+            tolerance: {
+                pixelThreshold: 0.25,
+                similarityThreshold: 0.70,
+                minRegionSize: 1000,
+                minRegionPercent: 1.0,
+                positionTolerance: 20,
+                strictMode: false
+            }
+        },
+        {
+            name: '标准',
+            tolerance: {
+                pixelThreshold: 0.15,
+                similarityThreshold: 0.85,
+                minRegionSize: 500,
+                minRegionPercent: 0.5,
+                positionTolerance: 10,
+                strictMode: false
+            }
+        },
+        {
+            name: '严格',
+            tolerance: {
+                pixelThreshold: 0.05,
+                similarityThreshold: 0.95,
+                minRegionSize: 100,
+                minRegionPercent: 0.1,
+                positionTolerance: 5,
+                strictMode: true
+            }
+        }
+    ],
+    lastUsedPreset: '标准'
+};
+
 function getSettingsPath(): string {
     return path.join(Editor.Project.path, 'settings', 'mcp-server.json');
 }
 
 function getToolManagerSettingsPath(): string {
     return path.join(Editor.Project.path, 'settings', 'tool-manager.json');
+}
+
+function getVerificationSettingsPath(): string {
+    return path.join(Editor.Project.path, 'settings', 'verification.json');
 }
 
 function ensureSettingsDir(): void {
@@ -82,6 +133,32 @@ export function saveToolManagerSettings(settings: ToolManagerSettings): void {
     }
 }
 
+// 视觉校验设置相关函数
+export function readVerificationSettings(): VerificationSettings {
+    try {
+        ensureSettingsDir();
+        const settingsFile = getVerificationSettingsPath();
+        if (fs.existsSync(settingsFile)) {
+            const content = fs.readFileSync(settingsFile, 'utf8');
+            return { ...DEFAULT_VERIFICATION_SETTINGS, ...JSON.parse(content) };
+        }
+    } catch (e) {
+        console.error('Failed to read verification settings:', e);
+    }
+    return DEFAULT_VERIFICATION_SETTINGS;
+}
+
+export function saveVerificationSettings(settings: VerificationSettings): void {
+    try {
+        ensureSettingsDir();
+        const settingsFile = getVerificationSettingsPath();
+        fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+    } catch (e) {
+        console.error('Failed to save verification settings:', e);
+        throw e;
+    }
+}
+
 export function exportToolConfiguration(config: ToolConfiguration): string {
     return JSON.stringify(config, null, 2);
 }
@@ -100,4 +177,4 @@ export function importToolConfiguration(configJson: string): ToolConfiguration {
     }
 }
 
-export { DEFAULT_SETTINGS, DEFAULT_TOOL_MANAGER_SETTINGS };
+export { DEFAULT_SETTINGS, DEFAULT_TOOL_MANAGER_SETTINGS, DEFAULT_VERIFICATION_SETTINGS };

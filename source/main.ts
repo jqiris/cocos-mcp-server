@@ -19,6 +19,10 @@ export const methods: { [key: string]: (...any: any) => any } = {
         Editor.Panel.open('cocos-mcp-server');
     },
 
+    openToolManager() {
+        Editor.Panel.open('cocos-mcp-server.tool-manager');
+    },
+
 
 
     /**
@@ -214,6 +218,22 @@ export const methods: { [key: string]: (...any: any) => any } = {
 
     async getEnabledTools() {
         return toolManager.getEnabledTools();
+    },
+
+    async getVerificationSettings() {
+        const { readVerificationSettings } = require('./settings');
+        return readVerificationSettings();
+    },
+
+    async saveVerificationSettings(settings: any) {
+        const { saveVerificationSettings } = require('./settings');
+        saveVerificationSettings(settings);
+        return { success: true };
+    },
+
+    onVerificationSettingsChanged(tolerance: any) {
+        console.log('Verification settings changed:', tolerance);
+        // Broadcast to connected MCP clients if needed
     }
 };
 

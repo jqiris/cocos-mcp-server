@@ -431,5 +431,177 @@ export const methods: { [key: string]: (...any: any) => any } = {
         } catch (error: any) {
             return { success: false, error: error.message };
         }
+    },
+
+    /**
+     * Capture camera screenshot - returns base64 PNG
+     * Uses RenderTexture with async frame wait to ensure the camera renders before reading pixels.
+     */
+    captureCameraScreenshot(cameraName?: string) {
+        return new Promise((resolve) => {
+            try {
+                const { director, Camera, RenderTexture, screen } = require('cc');
+                const scene = director.getScene();
+                if (!scene) {
+                    return resolve({ success: false, error: 'No active scene' });
+                }
+
+                // Find camera
+                let camera: any = null;
+                if (cameraName) {
+                    const cameraNode = scene.getChildByName(cameraName);
+                    if (cameraNode) {
+                        camera = cameraNode.getComponent(Camera);
+                    }
+                }
+
+                if (!camera) {
+                    const cameras = scene.getComponentsInChildren(Camera);
+                    camera = cameras.find((c: any) => c.priority === 0) || cameras[0];
+                }
+
+                if (!camera) {
+                    return resolve({ success: false, error: 'No camera found' });
+                }
+
+                const visibleSize = screen.windowSize;
+                const width = Math.floor(visibleSize.width);
+                const height = Math.floor(visibleSize.height);
+
+                const renderTexture = new RenderTexture();
+                // In CC 3.8.x, reset() takes IRenderTextureCreateInfo { width, height, passInfo? }
+                // Omit passInfo to use default RGBA8 format
+                renderTexture.reset({ width, height });
+
+                camera.targetTexture = renderTexture;
+
+                // Wait for the next frame to render before reading pixels
+                requestAnimationFrame(() => {
+                    try {
+                        const pixelData = renderTexture.readPixels(0, 0, width, height);
+                        camera.targetTexture = null;
+
+                        if (!pixelData) {
+                            return resolve({ success: false, error: 'Failed to read pixels from render texture' });
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            return resolve({ success: false, error: 'Failed to create canvas context' });
+                        }
+
+                        const imageData = ctx.createImageData(width, height);
+                        for (let y = 0; y < height; y++) {
+                            for (let x = 0; x < width; x++) {
+                                const srcIdx = ((height - 1 - y) * width + x) * 4;
+                                const dstIdx = (y * width + x) * 4;
+                                imageData.data[dstIdx] = pixelData[srcIdx];
+                                imageData.data[dstIdx + 1] = pixelData[srcIdx + 1];
+                                imageData.data[dstIdx + 2] = pixelData[srcIdx + 2];
+                                imageData.data[dstIdx + 3] = pixelData[srcIdx + 3];
+                            }
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+
+                        const dataUrl = canvas.toDataURL('image/png');
+                        const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+
+                        resolve({ success: true, data: { base64, width, height } });
+                    } catch (error: any) {
+                        camera.targetTexture = null;
+                        resolve({ success: false, error: error.message });
+                    }
+                });
+            } catch (error: any) {
+                resolve({ success: false, error: error.message });
+            }
+        });
+    },
+
+    captureCameraScreenshotWithResolution(width: number, height: number, cameraName?: string) {
+        return new Promise((resolve) => {
+            try {
+                const { director, Camera, RenderTexture } = require('cc');
+                const scene = director.getScene();
+                if (!scene) {
+                    return resolve({ success: false, error: 'No active scene' });
+                }
+
+                let camera: any = null;
+                if (cameraName) {
+                    const cameraNode = scene.getChildByName(cameraName);
+                    if (cameraNode) {
+                        camera = cameraNode.getComponent(Camera);
+                    }
+                }
+
+                if (!camera) {
+                    const cameras = scene.getComponentsInChildren(Camera);
+                    camera = cameras.find((c: any) => c.priority === 0) || cameras[0];
+                }
+
+                if (!camera) {
+                    return resolve({ success: false, error: 'No camera found' });
+                }
+
+                const renderTexture = new RenderTexture();
+                // In CC 3.8.x, reset() takes IRenderTextureCreateInfo { width, height, passInfo? }
+                // Omit passInfo to use default RGBA8 format
+                renderTexture.reset({ width, height });
+
+                camera.targetTexture = renderTexture;
+
+                // Wait for the next frame to render before reading pixels
+                requestAnimationFrame(() => {
+                    try {
+                        const pixelData = renderTexture.readPixels(0, 0, width, height);
+                        camera.targetTexture = null;
+
+                        if (!pixelData) {
+                            return resolve({ success: false, error: 'Failed to read pixels from render texture' });
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            return resolve({ success: false, error: 'Failed to create canvas context' });
+                        }
+
+                        const imageData = ctx.createImageData(width, height);
+                        for (let y = 0; y < height; y++) {
+                            for (let x = 0; x < width; x++) {
+                                const srcIdx = ((height - 1 - y) * width + x) * 4;
+                                const dstIdx = (y * width + x) * 4;
+                                imageData.data[dstIdx] = pixelData[srcIdx];
+                                imageData.data[dstIdx + 1] = pixelData[srcIdx + 1];
+                                imageData.data[dstIdx + 2] = pixelData[srcIdx + 2];
+                                imageData.data[dstIdx + 3] = pixelData[srcIdx + 3];
+                            }
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+
+                        const dataUrl = canvas.toDataURL('image/png');
+                        const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+
+                        resolve({ success: true, data: { base64, width, height } });
+                    } catch (error: any) {
+                        camera.targetTexture = null;
+                        resolve({ success: false, error: error.message });
+                    }
+                });
+            } catch (error: any) {
+                resolve({ success: false, error: error.message });
+            }
+        });
+    },
+
+    captureRegion(x: number, y: number, width: number, height: number, cameraName?: string) {
+        // Delegate to full screenshot, cropping done in main process
+        return methods.captureCameraScreenshot(cameraName);
     }
 };

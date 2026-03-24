@@ -16,6 +16,7 @@ export interface ToolDefinition {
     name: string;
     description: string;
     inputSchema: any;
+    category?: string;
 }
 
 export interface ToolResponse {
@@ -153,4 +154,62 @@ export interface ToolManagerState {
     availableTools: ToolConfig[];
     currentConfiguration: ToolConfiguration | null;
     configurations: ToolConfiguration[];
+}
+
+// 视觉校验相关接口
+export interface VerificationTolerance {
+    pixelThreshold: number;        // 单像素差异阈值 (0-1)
+    similarityThreshold: number;   // 相似度阈值 (0-1)
+    minRegionSize: number;         // 最小差异区域像素数
+    minRegionPercent: number;      // 最小差异区域百分比
+    positionTolerance: number;     // 位置容差像素数
+    strictMode: boolean;           // 严格模式
+}
+
+export interface VerificationSettings {
+    defaultTolerance: VerificationTolerance;
+    presets: VerificationPreset[];
+    lastUsedPreset: string;
+}
+
+export interface VerificationPreset {
+    name: string;
+    tolerance: VerificationTolerance;
+}
+
+export interface DiffRegion {
+    id: number;
+    boundingBox: { x: number; y: number; width: number; height: number };
+    pixelCount: number;
+    severity: 'low' | 'medium' | 'high';
+    center: { x: number; y: number };
+    percentageOfImage: number;
+}
+
+export interface CompareResult {
+    similarity: number;
+    mismatchedPixels: number;
+    totalPixels: number;
+    diffRegions: DiffRegion[];
+    diffImageBase64?: string;
+}
+
+export interface VerificationResult {
+    passed: boolean;
+    similarity: number;
+    overallVerdict: string;
+    differences: DiffRegion[];
+    diffImageBase64?: string;
+    mockupPath: string;
+    screenshotSize: { width: number; height: number };
+    timestamp: string;
+    toleranceUsed: VerificationTolerance;
+}
+
+export interface ScreenshotResult {
+    success: boolean;
+    base64?: string;
+    width?: number;
+    height?: number;
+    error?: string;
 }

@@ -10,11 +10,49 @@ export class ToolManager {
     constructor() {
         this.settings = this.readToolManagerSettings();
         this.initializeAvailableTools();
-        
+
         // 如果没有配置，自动创建一个默认配置
         if (this.settings.configurations.length === 0) {
             console.log('[ToolManager] No configurations found, creating default configuration...');
             this.createConfiguration('默认配置', '自动创建的默认工具配置');
+        } else {
+            // 同步新工具到现有配置
+            this.syncNewToolsToConfigs();
+        }
+    }
+
+    /**
+     * 同步新工具到所有配置
+     * 确保新添加的工具能够出现在现有配置中
+     */
+    private syncNewToolsToConfigs(): void {
+        let hasNewTools = false;
+
+        this.settings.configurations.forEach(config => {
+            // 找出配置中不存在的工具
+            const existingToolKeys = new Set(
+                config.tools.map(t => `${t.category}:${t.name}`)
+            );
+
+            this.availableTools.forEach(availableTool => {
+                const toolKey = `${availableTool.category}:${availableTool.name}`;
+                if (!existingToolKeys.has(toolKey)) {
+                    // 添加新工具到配置
+                    config.tools.push({
+                        category: availableTool.category,
+                        name: availableTool.name,
+                        enabled: true, // 新工具默认启用
+                        description: availableTool.description
+                    });
+                    hasNewTools = true;
+                    console.log(`[ToolManager] Synced new tool: ${availableTool.name} to config: ${config.name}`);
+                }
+            });
+        });
+
+        if (hasNewTools) {
+            this.saveSettings();
+            console.log('[ToolManager] Saved updated configurations with new tools');
         }
     }
 
@@ -96,6 +134,7 @@ export class ToolManager {
             const { ReferenceImageTools } = require('./reference-image-tools');
             const { AssetAdvancedTools } = require('./asset-advanced-tools');
             const { ValidationTools } = require('./validation-tools');
+            const { VisualVerificationTools } = require('./visual-verification-tools');
 
             // 初始化工具实例
             const tools = {
@@ -112,7 +151,8 @@ export class ToolManager {
                 sceneView: new SceneViewTools(),
                 referenceImage: new ReferenceImageTools(),
                 assetAdvanced: new AssetAdvancedTools(),
-                validation: new ValidationTools()
+                validation: new ValidationTools(),
+                visualVerification: new VisualVerificationTools()
             };
 
             // 从每个工具类获取工具列表
@@ -121,7 +161,7 @@ export class ToolManager {
                 const toolDefinitions = toolSet.getTools();
                 toolDefinitions.forEach((tool: any) => {
                     this.availableTools.push({
-                        category: category,
+                        category: tool.category || category, // 使用工具自带的分类，否则使用 key
                         name: tool.name,
                         enabled: true, // 默认启用
                         description: tool.description

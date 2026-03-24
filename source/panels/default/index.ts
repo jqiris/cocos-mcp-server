@@ -72,9 +72,19 @@ module.exports = Editor.Panel.define({
                     
                     const availableTools = ref<ToolConfig[]>([]);
                     const toolCategories = ref<string[]>([]);
-                    
 
-                    
+                    // 视觉校验设置
+                    const verificationPreset = ref('标准');
+                    const verificationTolerance = ref({
+                        pixelThreshold: 0.15,
+                        similarityThreshold: 0.85,
+                        minRegionSize: 500,
+                        minRegionPercent: 0.5,
+                        positionTolerance: 10,
+                        strictMode: false
+                    });
+
+
                     // 计算属性
                     const statusClass = computed(() => ({
                         'status-running': serverRunning.value,
@@ -278,9 +288,37 @@ module.exports = Editor.Panel.define({
                         };
                         return categoryNames[category] || category;
                     };
-                    
 
-                    
+                    // 视觉校验方法
+                    const onPresetChange = (preset: string) => {
+                        const presets: Record<string, any> = {
+                            '宽松': { pixelThreshold: 0.25, similarityThreshold: 0.80, minRegionSize: 800, minRegionPercent: 1.0, positionTolerance: 15, strictMode: false },
+                            '标准': { pixelThreshold: 0.15, similarityThreshold: 0.85, minRegionSize: 500, minRegionPercent: 0.5, positionTolerance: 10, strictMode: false },
+                            '严格': { pixelThreshold: 0.08, similarityThreshold: 0.92, minRegionSize: 200, minRegionPercent: 0.2, positionTolerance: 5, strictMode: true }
+                        };
+                        if (presets[preset]) {
+                            verificationTolerance.value = { ...presets[preset] };
+                        }
+                    };
+
+                    const saveVerificationSettings = async () => {
+                        try {
+                            await Editor.Message.request('cocos-mcp-server', 'save-verification-settings', {
+                                defaultTolerance: verificationTolerance.value,
+                                lastUsedPreset: verificationPreset.value
+                            });
+                            console.log('Verification settings saved');
+                        } catch (error) {
+                            console.error('Failed to save verification settings:', error);
+                        }
+                    };
+
+                    const resetVerificationSettings = () => {
+                        verificationPreset.value = '标准';
+                        onPresetChange('标准');
+                    };
+
+
 
                     
                     // 监听设置变化
@@ -294,7 +332,18 @@ module.exports = Editor.Panel.define({
                     onMounted(async () => {
                         // 加载工具管理器状态
                         await loadToolManagerState();
-                        
+
+                        // 加载视觉校验设置
+                        try {
+                            const result = await Editor.Message.request('cocos-mcp-server', 'get-verification-settings');
+                            if (result) {
+                                verificationTolerance.value = result.defaultTolerance || verificationTolerance.value;
+                                verificationPreset.value = result.lastUsedPreset || '标准';
+                            }
+                        } catch (error) {
+                            console.log('Using default verification settings');
+                        }
+
                         // 从服务器状态获取设置信息
                         try {
                             const serverStatus = await Editor.Message.request('cocos-mcp-server', 'get-server-status');
@@ -345,7 +394,9 @@ module.exports = Editor.Panel.define({
                         availableTools,
                         toolCategories,
                         settingsChanged,
-                        
+                        verificationPreset,
+                        verificationTolerance,
+
                         // 计算属性
                         statusClass,
                         totalTools,
@@ -364,7 +415,10 @@ module.exports = Editor.Panel.define({
                         saveChanges,
                         toggleCategoryTools,
                         getToolsByCategory,
-                        getCategoryDisplayName
+                        getCategoryDisplayName,
+                        onPresetChange,
+                        saveVerificationSettings,
+                        resetVerificationSettings
                     };
                 },
                 template: readFileSync(join(__dirname, '../../../static/template/vue/mcp-server-app.html'), 'utf-8'),

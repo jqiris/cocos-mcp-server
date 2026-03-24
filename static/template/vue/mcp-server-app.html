@@ -7,6 +7,9 @@
         <button class="tab-button" :class="{ active: activeTab === 'tools' }" @click="switchTab('tools')">
             <span>工具管理</span>
         </button>
+        <button class="tab-button" :class="{ active: activeTab === 'verification' }" @click="switchTab('verification')">
+            <span>视觉校验</span>
+        </button>
     </div>
     
     <!-- 服务器选项卡 -->
@@ -120,6 +123,62 @@
             
 
         </section>
+    </div>
+
+    <!-- 视觉校验选项卡 -->
+    <div class="tab-content" v-show="activeTab === 'verification'">
+        <section class="verification-settings">
+            <h3>视觉校验配置</h3>
+
+            <ui-prop>
+                <ui-label slot="label">预设方案</ui-label>
+                <ui-select slot="content" v-model="verificationPreset" @change="onPresetChange">
+                    <option value="宽松">宽松 - 早期原型</option>
+                    <option value="标准">标准 - 平衡模式</option>
+                    <option value="严格">严格 - 精确匹配</option>
+                    <option value="custom">自定义</option>
+                </ui-select>
+            </ui-prop>
+
+            <ui-prop>
+                <ui-label slot="label">像素差异阈值</ui-label>
+                <ui-slider slot="content" v-model="verificationTolerance.pixelThreshold" :min="0.05" :max="0.4" :step="0.01"></ui-slider>
+                <span class="value-display">{{ verificationTolerance.pixelThreshold.toFixed(2) }}</span>
+            </ui-prop>
+
+            <ui-prop>
+                <ui-label slot="label">相似度阈值</ui-label>
+                <ui-slider slot="content" v-model="verificationTolerance.similarityThreshold" :min="0.7" :max="0.98" :step="0.01"></ui-slider>
+                <span class="value-display">{{ (verificationTolerance.similarityThreshold * 100).toFixed(0) }}%</span>
+            </ui-prop>
+
+            <ui-prop>
+                <ui-label slot="label">最小差异区域 (像素)</ui-label>
+                <ui-num-input slot="content" v-model="verificationTolerance.minRegionSize" :min="100" :max="2000" :step="100"></ui-num-input>
+            </ui-prop>
+
+            <ui-prop>
+                <ui-label slot="label">最小差异区域 (%)</ui-label>
+                <ui-slider slot="content" v-model="verificationTolerance.minRegionPercent" :min="0.1" :max="2.0" :step="0.1"></ui-slider>
+                <span class="value-display">{{ verificationTolerance.minRegionPercent.toFixed(1) }}%</span>
+            </ui-prop>
+
+            <ui-prop>
+                <ui-label slot="label">位置容差 (像素)</ui-label>
+                <ui-num-input slot="content" v-model="verificationTolerance.positionTolerance" :min="0" :max="50" :step="1"></ui-num-input>
+            </ui-prop>
+
+            <ui-prop>
+                <ui-label slot="label">严格模式</ui-label>
+                <ui-checkbox slot="content" v-model="verificationTolerance.strictMode"></ui-checkbox>
+                <span class="hint">启用后任何显著差异都不通过</span>
+            </ui-prop>
+        </section>
+
+        <footer>
+            <ui-button @click="saveVerificationSettings" class="primary">保存配置</ui-button>
+            <ui-button @click="resetVerificationSettings">恢复默认</ui-button>
+        </footer>
     </div>
 </div>
 
