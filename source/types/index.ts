@@ -213,3 +213,64 @@ export interface ScreenshotResult {
     height?: number;
     error?: string;
 }
+
+// 结构对比相关接口
+export interface StructuralCompareResult {
+    edgeSimilarity: number;           // 边缘结构相似度 (0-1)
+    ssim: number;                     // SSIM 结构相似度指数 (0-1)
+    structuralDiffRegions: DiffRegion[];
+    edgeImageBase64?: string;         // 边缘图可视化
+}
+
+// 差异分析与修复建议相关接口
+export interface FixSuggestion {
+    regionId: number;
+    type: 'color_mismatch' | 'position_mismatch' | 'missing_element' | 'extra_element';
+    description: string;              // 中文描述
+    suggestedAction: string;          // 具体修复建议
+    targetNode?: string;              // 推测的目标节点名称
+    confidence: number;               // 置信度 0-1
+}
+
+export interface CategorizedDiff {
+    category: 'color' | 'position' | 'size' | 'missing' | 'extra';
+    description: string;              // 中文描述
+    region: DiffRegion;
+    severity: 'low' | 'medium' | 'high';
+}
+
+// 批量验证相关接口
+export interface BatchVerifyTask {
+    sceneName?: string;               // 场景名称
+    mockupPath: string;               // 效果图路径
+    cameraName?: string;              // 可选相机名称
+}
+
+export interface BatchVerifyResult {
+    passed: number;
+    failed: number;
+    total: number;
+    details: Array<{
+        task: BatchVerifyTask;
+        passed: boolean;
+        similarity: number;
+        verdict: string;
+        error?: string;
+    }>;
+}
+
+// 增强的校验结果
+export interface EnhancedVerificationResult extends VerificationResult {
+    // 结构化差异分析
+    analysis?: {
+        structuralSimilarity?: number;
+        colorConsistency?: number;
+        layoutMatch?: number;
+    };
+    // 分类差异描述
+    categorizedDiffs?: CategorizedDiff[];
+    // 修复建议
+    fixSuggestions?: FixSuggestion[];
+    // 报告持久化路径
+    reportPath?: string;
+}

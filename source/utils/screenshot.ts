@@ -8,7 +8,9 @@ import { ScreenshotResult } from '../types';
 
 /**
  * Try to capture screenshot using Electron's webContents API (main process fallback)
- * This captures the scene panel window directly without needing scene script
+ * In Cocos Creator, panels are <webview> elements inside the main BrowserWindow,
+ * so BrowserWindow.getAllWindows() only returns the main window. We capture
+ * the main window and try to locate the scene panel's webContents.
  */
 async function captureViaElectron(rect?: { x: number; y: number; width: number; height: number }): Promise<ScreenshotResult> {
   try {
@@ -19,8 +21,8 @@ async function captureViaElectron(rect?: { x: number; y: number; width: number; 
 
     const windows = BrowserWindow.getAllWindows();
 
-    // Find the scene panel window - look for scene-related title or URL
-    const sceneWindow = windows.find((w: any) => {
+    // Strategy 1: Look for a window whose title/URL contains "scene" or "Scene"
+    let targetWindow = windows.find((w: any) => {
       try {
         const url = w.getURL ? w.getURL() : '';
         const title = w.getTitle ? w.getTitle() : '';
@@ -35,19 +37,56 @@ async function captureViaElectron(rect?: { x: number; y: number; width: number; 
       }
     });
 
-    if (!sceneWindow) {
-      return { success: false, error: `Could not find scene panel window. Found ${windows.length} windows: ${windows.map((w: any) => w.getTitle ? w.getTitle() : 'unknown').join(', ')}` };
+    // Strategy 2: Fall back to the main Cocos Creator window
+    // (the only window in most cases, since panels are webviews)
+    if (!targetWindow && windows.length > 0) {
+      targetWindow = windows.find((w: any) => {
+        try {
+          const title = w.getTitle ? w.getTitle() : '';
+          return (
+            title.includes('Cocos') ||
+            title.includes('cocos')
+          );
+        } catch {
+          return false;
+        }
+      }) || windows[0];
     }
 
-    const webContents = sceneWindow.webContents;
-    if (!webContents) {
-      return { success: false, error: 'Scene panel has no webContents' };
+    if (!targetWindow) {
+      return { success: false, error: `Could not find any Electron window` };
     }
 
-    // Capture the page - capturePage returns a Promise<NativeImage> in modern Electron
+    // In Cocos Creator, the main window's webContents renders the editor frame.
+    // Individual panels are <webview> elements with their own webContents.
+    // Try to access panel webContents via the main window.
+    const mainWebContents = targetWindow.webContents;
+    if (!mainWebContents) {
+      return { success: false, error: 'Window has no webContents' };
+    }
+
+    // Try to find the scene panel's webContents among all webContents
+    // In Electron, webContents.getAllWebContents() returns all webContents including webviews
+    const { webContents } = require('electron');
+    const allWebContents = webContents.getAllWebContents();
+    const sceneWebContents = allWebContents.find((wc: any) => {
+      try {
+        const url = wc.getURL ? wc.getURL() : '';
+        return (
+          url.includes('panel/scene') ||
+          url.includes('scene-panel') ||
+          url.includes('scene.html')
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    // Capture from scene panel if found, otherwise from main window
+    const captureTarget = sceneWebContents || mainWebContents;
     const image = await (rect
-      ? webContents.capturePage(rect)
-      : webContents.capturePage());
+      ? captureTarget.capturePage(rect)
+      : captureTarget.capturePage());
 
     const size = image.getSize();
     const dataUrl = image.toDataURL('image/png');

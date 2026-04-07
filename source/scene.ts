@@ -434,49 +434,96 @@ export const methods: { [key: string]: (...any: any) => any } = {
     },
 
     /**
+     * Find the game Camera that belongs to a Canvas node.
+     * In editor mode, scene.getComponentsInChildren(Camera) may return
+     * the editor's internal camera, which does not render game UI.
+     */
+    findGameCamera(scene: any, cameraName?: string): any {
+        const { Camera, Canvas } = require('cc');
+
+        // 1. If a camera name is given, search Canvas children for it
+        if (cameraName) {
+            const canvasComps = scene.getComponentsInChildren(Canvas);
+            for (const cv of canvasComps) {
+                const cvNode = cv.node;
+                const camNode = cvNode.getChildByName(cameraName);
+                if (camNode) {
+                    const cam = camNode.getComponent(Camera);
+                    if (cam) return cam;
+                }
+            }
+        }
+
+        // 2. Search inside every Canvas node for a Camera (skip editor cameras)
+        const canvasComps = scene.getComponentsInChildren(Canvas);
+        for (const cv of canvasComps) {
+            const cvNode = cv.node;
+            const cameras = cvNode.getComponentsInChildren(Camera);
+            if (cameras.length > 0) {
+                // Prefer the camera referenced by the Canvas component
+                if (cv.cameraComponent) {
+                    return cv.cameraComponent;
+                }
+                // Otherwise return the first Camera found inside Canvas
+                return cameras[0];
+            }
+        }
+
+        // 3. Fallback: search the whole scene, but prefer Canvas children
+        const allCameras = scene.getComponentsInChildren(Camera);
+        return allCameras.find((c: any) => c.priority === 0) || allCameras[0] || null;
+    },
+
+    /**
+     * Get the game design resolution from the Canvas node.
+     */
+    getGameDesignResolution(scene: any): { width: number; height: number } {
+        const { Canvas, UITransform } = require('cc');
+        const canvasComps = scene.getComponentsInChildren(Canvas);
+        if (canvasComps.length > 0) {
+            const uiTransform = canvasComps[0].node.getComponent(UITransform);
+            if (uiTransform) {
+                return {
+                    width: uiTransform.contentSize.width,
+                    height: uiTransform.contentSize.height
+                };
+            }
+        }
+        return { width: 720, height: 1280 };
+    },
+
+    /**
      * Capture camera screenshot - returns base64 PNG
      * Uses RenderTexture with async frame wait to ensure the camera renders before reading pixels.
      */
     captureCameraScreenshot(cameraName?: string) {
         return new Promise((resolve) => {
             try {
-                const { director, Camera, RenderTexture, screen } = require('cc');
+                const { director, Camera, RenderTexture } = require('cc');
                 const scene = director.getScene();
                 if (!scene) {
                     return resolve({ success: false, error: 'No active scene' });
                 }
 
-                // Find camera
-                let camera: any = null;
-                if (cameraName) {
-                    const cameraNode = scene.getChildByName(cameraName);
-                    if (cameraNode) {
-                        camera = cameraNode.getComponent(Camera);
-                    }
-                }
+                // Find the game Camera (inside Canvas, not editor camera)
+                const camera = methods.findGameCamera(scene, cameraName);
 
                 if (!camera) {
-                    const cameras = scene.getComponentsInChildren(Camera);
-                    camera = cameras.find((c: any) => c.priority === 0) || cameras[0];
+                    return resolve({ success: false, error: 'No game camera found' });
                 }
 
-                if (!camera) {
-                    return resolve({ success: false, error: 'No camera found' });
-                }
-
-                const visibleSize = screen.windowSize;
-                const width = Math.floor(visibleSize.width);
-                const height = Math.floor(visibleSize.height);
+                // Use game design resolution instead of editor panel size
+                const { width, height } = methods.getGameDesignResolution(scene);
 
                 const renderTexture = new RenderTexture();
-                // In CC 3.8.x, reset() takes IRenderTextureCreateInfo { width, height, passInfo? }
-                // Omit passInfo to use default RGBA8 format
                 renderTexture.reset({ width, height });
 
                 camera.targetTexture = renderTexture;
 
-                // Wait for the next frame to render before reading pixels
-                requestAnimationFrame(() => {
+                // Use setTimeout to ensure the editor render loop has time
+                // to render a frame with the new targetTexture.
+                // requestAnimationFrame alone is unreliable in editor mode.
+                setTimeout(() => {
                     try {
                         const pixelData = renderTexture.readPixels(0, 0, width, height);
                         camera.targetTexture = null;
@@ -514,7 +561,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
                         camera.targetTexture = null;
                         resolve({ success: false, error: error.message });
                     }
-                });
+                }, 200);
             } catch (error: any) {
                 resolve({ success: false, error: error.message });
             }
@@ -530,32 +577,18 @@ export const methods: { [key: string]: (...any: any) => any } = {
                     return resolve({ success: false, error: 'No active scene' });
                 }
 
-                let camera: any = null;
-                if (cameraName) {
-                    const cameraNode = scene.getChildByName(cameraName);
-                    if (cameraNode) {
-                        camera = cameraNode.getComponent(Camera);
-                    }
-                }
+                const camera = methods.findGameCamera(scene, cameraName);
 
                 if (!camera) {
-                    const cameras = scene.getComponentsInChildren(Camera);
-                    camera = cameras.find((c: any) => c.priority === 0) || cameras[0];
-                }
-
-                if (!camera) {
-                    return resolve({ success: false, error: 'No camera found' });
+                    return resolve({ success: false, error: 'No game camera found' });
                 }
 
                 const renderTexture = new RenderTexture();
-                // In CC 3.8.x, reset() takes IRenderTextureCreateInfo { width, height, passInfo? }
-                // Omit passInfo to use default RGBA8 format
                 renderTexture.reset({ width, height });
 
                 camera.targetTexture = renderTexture;
 
-                // Wait for the next frame to render before reading pixels
-                requestAnimationFrame(() => {
+                setTimeout(() => {
                     try {
                         const pixelData = renderTexture.readPixels(0, 0, width, height);
                         camera.targetTexture = null;
@@ -593,7 +626,7 @@ export const methods: { [key: string]: (...any: any) => any } = {
                         camera.targetTexture = null;
                         resolve({ success: false, error: error.message });
                     }
-                });
+                }, 200);
             } catch (error: any) {
                 resolve({ success: false, error: error.message });
             }
